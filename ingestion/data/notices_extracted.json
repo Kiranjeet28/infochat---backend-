@@ -25,7 +25,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a9800946442b13f44ca0bbf",
@@ -53,7 +58,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a98008c6442b13f44ca0bbe",
@@ -81,7 +91,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": "Complete your registration promptly"
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a8d9023c910dd16c0b731ed",
@@ -109,7 +124,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a84559f8171506b42aeaa44",
@@ -137,7 +157,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a8455978171506b42aeaa43",
@@ -165,7 +190,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a71f5da510c49428be8c4b9",
@@ -193,7 +223,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a68b9987e4d75a510ef6bd9",
@@ -221,7 +256,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a68b9917e4d75a510ef6bd8",
@@ -249,7 +289,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a61d2884425d9f5dc4e876e",
@@ -277,7 +322,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a61d2734425d9f5dc4e876d",
@@ -305,7 +355,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a5a3225fac423cd70085a44",
@@ -333,7 +388,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a5a3216fac423cd70085a43",
@@ -361,7 +421,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a4ccba10f16d7b537d83bed",
@@ -389,7 +454,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a4b86f4f0cb671cd232ea36",
@@ -417,7 +487,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a48c74524b84f8efd9998b0",
@@ -445,7 +520,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a48c73024b84f8efd9998af",
@@ -473,7 +553,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a48c72824b84f8efd9998ae",
@@ -501,7 +586,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a48c71224b84f8efd9998ad",
@@ -529,7 +619,12 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   },
   {
     "_id": "6a48c70724b84f8efd9998ac",
@@ -557,6 +652,11 @@
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
-    }
+    },
+    "review_flags": [
+      "missing_category"
+    ],
+    "review_status": "needs_review",
+    "extraction_confidence": 0.94
   }
 ]

@@ -6,6 +6,7 @@ import json
 import hashlib
 import re
 from collections import Counter
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urljoin
@@ -138,6 +139,86 @@ def extract_metadata(notice: dict, text: str) -> dict:
     return metadata
 
 
+def _valid_notice_date(value: str | None) -> bool:
+    if not value:
+        return False
+    for date_format in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+        try:
+            datetime.strptime(value.strip(), date_format)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def validate_notice(notice: dict) -> dict:
+    """Flag incomplete or inconsistent records and score their evidence quality."""
+    metadata = notice.get("metadata") or {}
+    source = notice.get("source") or {}
+    flags: list[str] = []
+    score = 0.0
+
+    if notice.get("title", "").strip():
+        score += 0.15
+    else:
+        flags.append("missing_title")
+
+    notice_date = metadata.get("date") or notice.get("date")
+    if _valid_notice_date(notice_date):
+        score += 0.20
+    else:
+        flags.append("missing_or_invalid_date")
+
+    if notice.get("text", "").strip():
+        score += 0.20
+    else:
+        flags.append("missing_text")
+
+    if source.get("official_notice_url"):
+        score += 0.16
+    else:
+        flags.append("missing_official_notice_url")
+
+    if source.get("api_url"):
+        score += 0.04
+    else:
+        flags.append("missing_api_url")
+
+    fetched_at = source.get("fetched_at")
+    try:
+        parsed_fetched_at = datetime.fromisoformat(fetched_at) if fetched_at else None
+        if parsed_fetched_at and parsed_fetched_at.tzinfo:
+            score += 0.04
+        else:
+            flags.append("missing_or_invalid_fetched_at")
+    except (TypeError, ValueError):
+        flags.append("missing_or_invalid_fetched_at")
+
+    expected_hash = hashlib.sha256(notice.get("text", "").encode("utf-8")).hexdigest()
+    if notice.get("content_hash") == expected_hash:
+        score += 0.15
+    else:
+        flags.append("missing_or_mismatched_content_hash")
+
+    if metadata.get("category"):
+        score += 0.06
+    else:
+        flags.append("missing_category")
+
+    deadline = metadata.get("deadline")
+    if deadline and not metadata.get("deadline_source_sentence"):
+        flags.append("deadline_missing_source_sentence")
+        score = max(0.0, score - 0.15)
+    elif deadline and metadata["deadline"] not in metadata["deadline_source_sentence"]:
+        flags.append("deadline_not_found_in_source_sentence")
+        score = max(0.0, score - 0.15)
+
+    notice["review_flags"] = flags
+    notice["review_status"] = "needs_review" if flags else "ok"
+    notice["extraction_confidence"] = round(max(0.0, min(1.0, score)), 2)
+    return notice
+
+
 def extract_notice_text(notice: dict) -> dict:
     """Return a copy with cleaned text, extraction status, and PDF provenance."""
     result = dict(notice)
@@ -148,20 +229,20 @@ def extract_notice_text(notice: dict) -> dict:
         result["extraction_status"] = "text_available"
         result["content_hash"] = hashlib.sha256(result["text"].encode("utf-8")).hexdigest()
         result["metadata"] = extract_metadata(notice, result["text"])
-        return result
+        return validate_notice(result)
 
     if not pdf_url:
         result["text"] = ""
         result["extraction_status"] = "no_text_or_pdf"
         result["content_hash"] = hashlib.sha256(b"").hexdigest()
         result["metadata"] = extract_metadata(notice, "")
-        return result
+        return validate_notice(result)
 
     result["pdf_url"] = pdf_url
     result["text"], result["extraction_status"] = _extract_pdf(pdf_url)
     result["content_hash"] = hashlib.sha256(result["text"].encode("utf-8")).hexdigest()
     result["metadata"] = extract_metadata(notice, result["text"])
-    return result
+    return validate_notice(result)
 
 
 def main() -> None:
@@ -179,7 +260,7 @@ def main() -> None:
             result["content_hash"] = hashlib.sha256(b"").hexdigest()
             result["metadata"] = extract_metadata(notice, "")
             result["extraction_error"] = str(error)
-            extracted.append(result)
+            extracted.append(validate_notice(result))
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(
