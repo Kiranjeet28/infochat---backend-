@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from collections import Counter
 from io import BytesIO
@@ -81,15 +82,18 @@ def extract_notice_text(notice: dict) -> dict:
     if existing_text.strip():
         result["text"] = clean_text(existing_text)
         result["extraction_status"] = "text_available"
+        result["content_hash"] = hashlib.sha256(result["text"].encode("utf-8")).hexdigest()
         return result
 
     if not pdf_url:
         result["text"] = ""
         result["extraction_status"] = "no_text_or_pdf"
+        result["content_hash"] = hashlib.sha256(b"").hexdigest()
         return result
 
     result["pdf_url"] = pdf_url
     result["text"], result["extraction_status"] = _extract_pdf(pdf_url)
+    result["content_hash"] = hashlib.sha256(result["text"].encode("utf-8")).hexdigest()
     return result
 
 
@@ -105,6 +109,7 @@ def main() -> None:
             result["pdf_url"] = pdf_url
             result["text"] = ""
             result["extraction_status"] = "pdf_error"
+            result["content_hash"] = hashlib.sha256(b"").hexdigest()
             result["extraction_error"] = str(error)
             extracted.append(result)
 
