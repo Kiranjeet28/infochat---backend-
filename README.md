@@ -17,3 +17,15 @@ python ingestion/load_supabase.py
 
 Keep the service role key private and out of source control. It bypasses Row Level
 Security, so the loader is intended for trusted local ingestion only.
+
+After notices are loaded and reviewed, create chunks with the same environment
+variables:
+
+```powershell
+python -m pip install -r ingestion/requirements.txt
+python ingestion/chunk_notices.py
+```
+
+The chunker selects notices whose `superseded_by` is null and whose
+`review_status` is not `needs_review`. It uses 400-token chunks with a 50-token
+overlap and skips existing `(notice_id, chunk_index)` pairs when rerun.
