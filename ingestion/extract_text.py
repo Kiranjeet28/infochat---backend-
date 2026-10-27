@@ -41,6 +41,15 @@ ACTION_PATTERN = re.compile(
     r"report|appear|attend|contact|verify|download|complete|present)\b[^.!?\n]*",
     re.IGNORECASE,
 )
+TOPIC_STOPWORDS = {
+    "a", "an", "and", "for", "from", "in", "is", "of", "on", "or", "the", "to",
+    "notice", "regarding", "2026", "2025", "2024", "may", "june", "july", "august",
+}
+REPLACEMENT_CUE = re.compile(
+    r"\b(?:revised|corrigendum|supersed(?:e|es|ed|ing)|in place of|replaces?|"
+    r"dates? extended|extension|re-opening|reopening|corrected)\b",
+    re.IGNORECASE,
+)
 
 
 def clean_text(text: str, page_texts: list[str] | None = None) -> str:
@@ -219,6 +228,94 @@ def validate_notice(notice: dict) -> dict:
     return notice
 
 
+def _topic_tokens(title: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", title.casefold())
+        if len(token) > 2 and token not in TOPIC_STOPWORDS
+    }
+
+
+def link_notice_versions(notices: list[dict]) -> list[dict]:
+    """Link only evidenced replacements; flag similar, unresolved notice pairs."""
+    for notice in notices:
+        notice["supersedes_id"] = None
+        notice["superseded_by"] = None
+        notice["version_status"] = "no_match"
+
+    ambiguous_pairs: list[tuple[dict, dict]] = []
+    for index, first in enumerate(notices):
+        first_tokens = _topic_tokens(first.get("title", ""))
+        for second in notices[index + 1 :]:
+            second_tokens = _topic_tokens(second.get("title", ""))
+            shared = first_tokens & second_tokens
+            union = first_tokens | second_tokens
+            topic_match = len(shared) >= 2 and bool(union) and len(shared) / len(union) >= 0.18
+            if not topic_match:
+                continue
+
+            first_meta = first.get("metadata") or {}
+            second_meta = second.get("metadata") or {}
+            same_category_and_department = (
+                first_meta.get("category")
+                and second_meta.get("category")
+                and first_meta.get("category") == second_meta.get("category")
+                and first_meta.get("department")
+                and second_meta.get("department")
+                and first_meta.get("department") == second_meta.get("department")
+            )
+            replacement_evidence = bool(
+                REPLACEMENT_CUE.search(first.get("title", "") + "\n" + first.get("text", ""))
+            ) or bool(REPLACEMENT_CUE.search(second.get("title", "") + "\n" + second.get("text", "")))
+
+            # Similar titles alone are common for separate notices (for example,
+            # different students' presentations or different examination groups).
+            # Consider them version candidates only with explicit update language,
+            # or when category and department already establish the shared scope.
+            if not replacement_evidence and not same_category_and_department:
+                continue
+
+            if replacement_evidence and same_category_and_department:
+                first_date = first_meta.get("date") or first.get("date")
+                second_date = second_meta.get("date") or second.get("date")
+                first_parsed = _parse_notice_date(first_date)
+                second_parsed = _parse_notice_date(second_date)
+                if first_parsed and second_parsed and first_parsed != second_parsed:
+                    older, newer = (first, second) if first_parsed < second_parsed else (second, first)
+                    newer["supersedes_id"] = older.get("_id")
+                    older["superseded_by"] = newer.get("_id")
+                    older["version_status"] = "superseded"
+                    newer["version_status"] = "supersedes"
+                    continue
+
+            ambiguous_pairs.append((first, second))
+
+    for first, second in ambiguous_pairs:
+        for notice, other in ((first, second), (second, first)):
+            notice["version_status"] = "needs_review"
+            notice.setdefault("version_review_candidates", []).append(other.get("_id"))
+            flags = notice.setdefault("review_flags", [])
+            if "version_relationship_ambiguous" not in flags:
+                flags.append("version_relationship_ambiguous")
+            notice["review_status"] = "needs_review"
+            notice["extraction_confidence"] = round(
+                max(0.0, notice.get("extraction_confidence", 0.0) - 0.10), 2
+            )
+
+    return notices
+
+
+def _parse_notice_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    for date_format in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(value.strip(), date_format)
+        except ValueError:
+            continue
+    return None
+
+
 def extract_notice_text(notice: dict) -> dict:
     """Return a copy with cleaned text, extraction status, and PDF provenance."""
     result = dict(notice)
@@ -262,6 +359,7 @@ def main() -> None:
             result["extraction_error"] = str(error)
             extracted.append(validate_notice(result))
 
+    extracted = link_notice_versions(extracted)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(
         json.dumps(extracted, ensure_ascii=False, indent=2) + "\n",
