@@ -1,4 +1,5 @@
 requests
+python-dotenv
 beautifulsoup4
 pdfplumber
 langchain-text-splitters

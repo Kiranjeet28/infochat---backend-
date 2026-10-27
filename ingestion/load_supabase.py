@@ -8,10 +8,13 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from dotenv import load_dotenv
 
 
 DATA_DIR = Path(__file__).parent / "data"
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 BATCH_SIZE = 100
+PAGE_SIZE = 1000
 REQUEST_TIMEOUT_SECONDS = 30
 
 
@@ -79,8 +82,38 @@ def read_notice_rows(data_dir: Path = DATA_DIR) -> tuple[list[dict[str, Any]], i
     return rows, ignored_unhashed, ignored_duplicate_files
 
 
-def load_notices() -> tuple[int, int, int]:
-    """Insert new notices through Supabase REST; the unique hash handles races."""
+def _fetch_existing_notices(
+    session: requests.Session, endpoint: str, headers: dict[str, str]
+) -> tuple[dict[str, str], set[str]]:
+    """Return current hashes keyed by notice ID and all hashes already stored."""
+    by_id: dict[str, str] = {}
+    hashes: set[str] = set()
+    offset = 0
+    while True:
+        response = session.get(
+            endpoint,
+            params={
+                "select": "notice_id,content_hash",
+                "order": "notice_id.asc",
+                "limit": PAGE_SIZE,
+                "offset": offset,
+            },
+            headers=headers,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        page = response.json()
+        for existing in page:
+            by_id[existing["notice_id"]] = existing["content_hash"]
+            hashes.add(existing["content_hash"])
+        if len(page) < PAGE_SIZE:
+            break
+        offset += PAGE_SIZE
+    return by_id, hashes
+
+
+def load_notices() -> tuple[int, int, int, int]:
+    """Skip known hashes, update changed notice IDs, and insert new notices."""
     project_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
     service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
     if not project_url or not service_role_key:
@@ -98,26 +131,56 @@ def load_notices() -> tuple[int, int, int]:
         "Prefer": "resolution=ignore-duplicates,return=representation",
     }
 
-    inserted = 0
-    session = requests.Session()
-    for start in range(0, len(rows), BATCH_SIZE):
-        response = session.post(
-            endpoint,
-            params={"on_conflict": "content_hash"},
-            headers=headers,
-            json=rows[start : start + BATCH_SIZE],
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        result = response.json()
-        inserted += len(result) if isinstance(result, list) else 0
+    inserted = updated = skipped_existing = 0
+    insert_rows: list[dict[str, Any]] = []
+    with requests.Session() as session:
+        existing_by_id, existing_hashes = _fetch_existing_notices(session, endpoint, headers)
+        for row in rows:
+            notice_id = row["notice_id"]
+            content_hash = row["content_hash"]
+            current_hash = existing_by_id.get(notice_id)
 
-    skipped_existing = len(rows) - inserted
+            if content_hash in existing_hashes:
+                skipped_existing += 1
+                continue
+
+            if current_hash is not None:
+                # Keep the operator's review decision when refreshing changed notice content.
+                update_row = {key: value for key, value in row.items() if key != "review_status"}
+                response = session.patch(
+                    endpoint,
+                    params={"notice_id": f"eq.{notice_id}"},
+                    headers={**headers, "Prefer": "return=minimal"},
+                    json=update_row,
+                    timeout=REQUEST_TIMEOUT_SECONDS,
+                )
+                response.raise_for_status()
+                existing_hashes.discard(current_hash)
+                existing_hashes.add(content_hash)
+                existing_by_id[notice_id] = content_hash
+                updated += 1
+            else:
+                insert_rows.append(row)
+
+        for start in range(0, len(insert_rows), BATCH_SIZE):
+            response = session.post(
+                endpoint,
+                params={"on_conflict": "content_hash"},
+                headers=headers,
+                json=insert_rows[start : start + BATCH_SIZE],
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            result = response.json()
+            inserted += len(result) if isinstance(result, list) else 0
+
+    skipped_existing += len(insert_rows) - inserted
     print(f"Inserted {inserted} notices")
+    print(f"Updated {updated} notices with changed content_hash")
     print(f"Skipped {skipped_existing} notices with an existing content_hash")
     print(f"Ignored {ignored_unhashed} raw notices without content_hash")
     print(f"Ignored {ignored_duplicate_files} duplicate hashes across JSON files")
-    return inserted, skipped_existing, ignored_unhashed
+    return inserted, updated, skipped_existing, ignored_unhashed
 
 
 if __name__ == "__main__":

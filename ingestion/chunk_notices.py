@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
+from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 PAGE_SIZE = 1000
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 BATCH_SIZE = 100
 REQUEST_TIMEOUT_SECONDS = 30
 CHUNK_SIZE_TOKENS = 400
@@ -215,6 +218,8 @@ def _record_index_status(
 
 
 def _skip_reason(notice: dict[str, Any]) -> str:
+    if not isinstance(notice.get("source_url"), str) or not notice["source_url"].strip():
+        return "missing source_url"
     if notice.get("superseded_by") is not None:
         return f"Superseded by notice {notice['superseded_by']}"
     if notice.get("review_status") == "needs_review":
@@ -240,6 +245,8 @@ def split_and_load() -> tuple[int, int, int]:
             and notice.get("review_status") != "needs_review"
             and isinstance(notice.get("text"), str)
             and notice["text"].strip()
+            and isinstance(notice.get("source_url"), str)
+            and notice["source_url"].strip()
         ]
         eligible_ids = {notice["notice_id"] for notice in eligible_notices}
 
