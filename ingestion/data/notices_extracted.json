@@ -16,7 +16,16 @@
     },
     "text": "Schedule for End Semester Makeup Examination\nThis schedule is for\nMay-2026\nexaminations.\nCheck the ERP noticeboard for full details.",
     "extraction_status": "text_available",
-    "content_hash": "87467487534229b029107ff71fbfcd08b8ea3a13f9779c2fa6d6e22da2f69951"
+    "content_hash": "87467487534229b029107ff71fbfcd08b8ea3a13f9779c2fa6d6e22da2f69951",
+    "metadata": {
+      "date": "September 2, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a9800946442b13f44ca0bbf",
@@ -35,7 +44,16 @@
     },
     "text": "Examination form filling process\nfor\nMakeup Examination May-2026\nis announced.\nStudents are advised to check the ERP notice.\nRefer to the complete announcement on ERP for all details and instructions.",
     "extraction_status": "text_available",
-    "content_hash": "63b87ffea1c19dbaf6102f1e6382def4c9d00d4f2d2da6ee75b5feb977f80438"
+    "content_hash": "63b87ffea1c19dbaf6102f1e6382def4c9d00d4f2d2da6ee75b5feb977f80438",
+    "metadata": {
+      "date": "September 2, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a98008c6442b13f44ca0bbe",
@@ -54,7 +72,16 @@
     },
     "text": "The\nOnline Registration Process\nhas been\nRe-opened!\nThis is for\nCourse(s) Detention (July-Dec, 2026)\n.\nComplete your registration promptly.\nRefer to the ERP notice for full details.",
     "extraction_status": "text_available",
-    "content_hash": "f48b0fcec88497dfa920be590ac4248c0538c024b0313046305be8a4e57714f6"
+    "content_hash": "f48b0fcec88497dfa920be590ac4248c0538c024b0313046305be8a4e57714f6",
+    "metadata": {
+      "date": "September 2, 2026",
+      "category": null,
+      "department": null,
+      "semester": "JULY-DEC, 2026",
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": "Complete your registration promptly"
+    }
   },
   {
     "_id": "6a8d9023c910dd16c0b731ed",
@@ -73,7 +100,16 @@
     },
     "text": "Original Documents Collection Notice\nFor\nNewly Admitted UG/PG Students\n.\nRegarding admissions in\n.\nCheck the full notice on ERP for details.",
     "extraction_status": "text_available",
-    "content_hash": "c4958e1cfd97f2f0cbcc7a8d33bc112be80c8f0d1c18c74794dd249f55c4710c"
+    "content_hash": "c4958e1cfd97f2f0cbcc7a8d33bc112be80c8f0d1c18c74794dd249f55c4710c",
+    "metadata": {
+      "date": "August 25, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a84559f8171506b42aeaa44",
@@ -92,7 +128,16 @@
     },
     "text": "Original Documents Uploading Notice 2026\nhas been issued.\nIt was published on\nAugust 18, 2026\n.\nFor full details, please refer to the complete notice at:\nhttps://erp.gndec.ac.in/noticeboard/original-documents-uploading-notice-2026",
     "extraction_status": "text_available",
-    "content_hash": "a62593346ab3c879157daa70bc7f1bbb6f77ea34253e9784e04ed55e67727171"
+    "content_hash": "a62593346ab3c879157daa70bc7f1bbb6f77ea34253e9784e04ed55e67727171",
+    "metadata": {
+      "date": "August 18, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a8455978171506b42aeaa43",
@@ -111,7 +156,16 @@
     },
     "text": "ID Cards Final Notice 2026\nRead the complete notice for further details.",
     "extraction_status": "text_available",
-    "content_hash": "f6f124ac5e0bcd82892faf4881a94a58fc4f4cd2572d77fbf98ff7020d7e8278"
+    "content_hash": "f6f124ac5e0bcd82892faf4881a94a58fc4f4cd2572d77fbf98ff7020d7e8278",
+    "metadata": {
+      "date": "August 18, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a71f5da510c49428be8c4b9",
@@ -130,7 +184,16 @@
     },
     "text": "New:\nReadmission Notice 12\n.\nPublished on\nAugust 4, 2026\n.\nThe original content is \"Readmission_Notice 12_04.08.26\".\nCheck ERP for further context and information.",
     "extraction_status": "text_available",
-    "content_hash": "cd0cb175737f00751aedfda4554adc53fc4a237d889cd8a2404fcfb7a449b25e"
+    "content_hash": "cd0cb175737f00751aedfda4554adc53fc4a237d889cd8a2404fcfb7a449b25e",
+    "metadata": {
+      "date": "August 4, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a68b9987e4d75a510ef6bd9",
@@ -149,7 +212,16 @@
     },
     "text": "Six Months Progress Presentation\nOf\nMs. Ritu, PhD.\nRegd. No.\n,\nURN\n.",
     "extraction_status": "text_available",
-    "content_hash": "be2a2c0a72ae2d236d900d3b62e2a804bfd217986474a89ddaba6cd15eb555bf"
+    "content_hash": "be2a2c0a72ae2d236d900d3b62e2a804bfd217986474a89ddaba6cd15eb555bf",
+    "metadata": {
+      "date": "July 28, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a68b9917e4d75a510ef6bd8",
@@ -168,7 +240,16 @@
     },
     "text": "Official notice:\nStruck_off_Notice_43_25.07.26.pdf\n.\nThis essential document is now available for review.\nAccess the full PDF at\nhttps://erp.gndec.ac.in/noticeboard/struck-off-notice-43-250726pdf\n.\nPublished by\nadministrator\non\nJuly 28, 2026\n.",
     "extraction_status": "text_available",
-    "content_hash": "fe7f756c5030f1603c71991605e1c99923fbc5b34a4eee84fa01f9cfdd1feede"
+    "content_hash": "fe7f756c5030f1603c71991605e1c99923fbc5b34a4eee84fa01f9cfdd1feede",
+    "metadata": {
+      "date": "July 28, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a61d2884425d9f5dc4e876e",
@@ -187,7 +268,16 @@
     },
     "text": "Provisional Results\nfor the\nEnd Semester Examinations May 2026\nare now available.",
     "extraction_status": "text_available",
-    "content_hash": "583f62b40b1b6f5a3b128523b37707ff0eb8e6891ce4cf95e51dd0c87dad39df"
+    "content_hash": "583f62b40b1b6f5a3b128523b37707ff0eb8e6891ce4cf95e51dd0c87dad39df",
+    "metadata": {
+      "date": "July 23, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a61d2734425d9f5dc4e876d",
@@ -206,7 +296,16 @@
     },
     "text": "Notice regarding classes of Odd Semester\nA notice has been published\nconcerning the\nOdd Semester classes\n.\nRefer to the original notice for more information.",
     "extraction_status": "text_available",
-    "content_hash": "5bf888540ffddb7769eb39e489441c49d915ea400e94583ef34d4538f8d5fecc"
+    "content_hash": "5bf888540ffddb7769eb39e489441c49d915ea400e94583ef34d4538f8d5fecc",
+    "metadata": {
+      "date": "July 23, 2026",
+      "category": null,
+      "department": null,
+      "semester": "Odd Semester",
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a5a3225fac423cd70085a44",
@@ -225,7 +324,16 @@
     },
     "text": "Open Elective (OE) List for 3rd Sem\nFor\n(2025-2029) session students\n,\nThe list for\nJuly-December 2026\nis now available.\nRefer to the complete notice on ERP for details.",
     "extraction_status": "text_available",
-    "content_hash": "e6d02e68e29accc7f188aae0109c668f239a2af94ce20a7d89a2cb377724baad"
+    "content_hash": "e6d02e68e29accc7f188aae0109c668f239a2af94ce20a7d89a2cb377724baad",
+    "metadata": {
+      "date": "July 17, 2026",
+      "category": null,
+      "department": null,
+      "semester": "july-dec",
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a5a3216fac423cd70085a43",
@@ -244,7 +352,16 @@
     },
     "text": "List of OE\nfor\nsem 5th\n.\n(24-28) session\n,\nJuly-Dec.2026\n.",
     "extraction_status": "text_available",
-    "content_hash": "d1281319bad0f22b30f9d6db3ec972948ec1cf0a507902bdf4ffdab4df9c2141"
+    "content_hash": "d1281319bad0f22b30f9d6db3ec972948ec1cf0a507902bdf4ffdab4df9c2141",
+    "metadata": {
+      "date": "July 17, 2026",
+      "category": null,
+      "department": null,
+      "semester": "july-dec",
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a4ccba10f16d7b537d83bed",
@@ -263,7 +380,16 @@
     },
     "text": "The official notice is:\nStruck_off_Notice_42_07.07.26\n.\nThis notification was issued on\nJuly 7, 2026\n.\nIt has been published by the\nadministrator\n.\nPlease refer to the ERP noticeboard for its context.",
     "extraction_status": "text_available",
-    "content_hash": "431cf7b9375264f446d02851b59e77bd64bd5070971ea087a93ced8c7510731f"
+    "content_hash": "431cf7b9375264f446d02851b59e77bd64bd5070971ea087a93ced8c7510731f",
+    "metadata": {
+      "date": "July 7, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a4b86f4f0cb671cd232ea36",
@@ -282,7 +408,16 @@
     },
     "text": "Open Elective Choice Filling Dates Extended!\nThe new deadline is\nJuly 7, 2026\n.",
     "extraction_status": "text_available",
-    "content_hash": "96d59f01b3578f962e89cf53086dc48c15e0d62606fa49764952b808d74b53a0"
+    "content_hash": "96d59f01b3578f962e89cf53086dc48c15e0d62606fa49764952b808d74b53a0",
+    "metadata": {
+      "date": "July 6, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a48c74524b84f8efd9998b0",
@@ -301,7 +436,16 @@
     },
     "text": "Six Months Progress Presentation\nof\nMs. Gitanjali Sharda\nPhD Research Scholar\n.\nTesting for hte next working of it this website",
     "extraction_status": "text_available",
-    "content_hash": "fdbfb9755f1f918d0e5b8e96fe68c7fb92f50a7357740a627c0247ec94ba60f0"
+    "content_hash": "fdbfb9755f1f918d0e5b8e96fe68c7fb92f50a7357740a627c0247ec94ba60f0",
+    "metadata": {
+      "date": "June 15, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a48c73024b84f8efd9998af",
@@ -320,7 +464,16 @@
     },
     "text": "Merger of Examination Centres\nThis affects the\nEnd Semester Examinations\nfor\nMay 2026\n.\nPlease check the full notice for details.",
     "extraction_status": "text_available",
-    "content_hash": "306e4f2936ebb14bdea7eab1f52ac98894496a77d7c44adc9526d5c79cde9fb7"
+    "content_hash": "306e4f2936ebb14bdea7eab1f52ac98894496a77d7c44adc9526d5c79cde9fb7",
+    "metadata": {
+      "date": "June 16, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a48c72824b84f8efd9998ae",
@@ -339,7 +492,16 @@
     },
     "text": "The\nprovisional result\nof\nB. Tech. Final year\nfor\nESE May-2026\n.",
     "extraction_status": "text_available",
-    "content_hash": "ed0f268c5bc1c0c1572bbca4763ea293a12b46646a3c63b8d280d10d6b7b0f22"
+    "content_hash": "ed0f268c5bc1c0c1572bbca4763ea293a12b46646a3c63b8d280d10d6b7b0f22",
+    "metadata": {
+      "date": "June 20, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a48c71224b84f8efd9998ad",
@@ -358,7 +520,16 @@
     },
     "text": "OE-II Choice Filling Notice\nis published.\nDetails regarding the\nSyllabus\nare included.\nThis notice is for the upcoming\nSession\n.\nSpecifically,\nJan-June 2026\n.",
     "extraction_status": "text_available",
-    "content_hash": "b1778698e3018385a9a172ff460045ff97bf187660c53563e0148b9cb9d292dc"
+    "content_hash": "b1778698e3018385a9a172ff460045ff97bf187660c53563e0148b9cb9d292dc",
+    "metadata": {
+      "date": "June 23, 2026",
+      "category": null,
+      "department": null,
+      "semester": "Jan-June 2026",
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   },
   {
     "_id": "6a48c70724b84f8efd9998ac",
@@ -377,6 +548,15 @@
     },
     "text": "Provisional Result Declared!\nFor\nBBA and BCA\nprograms.\nApplies to\nFinal Year (Regular)\nstudents.\nThis is for\nESE May-2026\n.",
     "extraction_status": "text_available",
-    "content_hash": "8bacd079792f16ff9e30ed695e5d60ba8b6aa69932911d59480b4ea52fe4276a"
+    "content_hash": "8bacd079792f16ff9e30ed695e5d60ba8b6aa69932911d59480b4ea52fe4276a",
+    "metadata": {
+      "date": "July 2, 2026",
+      "category": null,
+      "department": null,
+      "semester": null,
+      "deadline": null,
+      "deadline_source_sentence": null,
+      "required_action": null
+    }
   }
 ]

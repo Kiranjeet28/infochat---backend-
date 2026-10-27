@@ -19,6 +19,27 @@ INPUT_PATH = Path(__file__).parent / "data" / "notices.json"
 OUTPUT_PATH = Path(__file__).parent / "data" / "notices_extracted.json"
 REQUEST_TIMEOUT_SECONDS = 60
 PAGE_NUMBER = re.compile(r"^(?:page\s*)?\d+(?:\s*(?:of|/)\s*\d+)?$", re.IGNORECASE)
+DATE_PATTERN = re.compile(
+    r"\b(?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+20\d{2})?|"
+    r"[A-Z][a-z]+\s+\d{1,2}(?:,?\s+20\d{2})?|\d{1,2}[/-]\d{1,2}[/-]20\d{2})\b"
+)
+DEADLINE_CUE = re.compile(r"\b(?:deadline|last date|on or before|by|due date|submit by)\b", re.IGNORECASE)
+SEMESTER_PATTERN = re.compile(
+    r"\b(?:semester\s*(?:no\.?\s*)?\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s*semester|"
+    r"(?:odd|even)\s*(?:semester|term)|(?:january|jan|july|jul)[- ](?:june|jun|december|dec)"
+    r"(?:\s*,?\s*20\d{2})?)\b",
+    re.IGNORECASE,
+)
+DEPARTMENT_PATTERN = re.compile(
+    r"\b(?:department\s+of\s+[A-Z][A-Za-z&()/ -]{1,50}|"
+    r"[A-Z][A-Za-z&()/ -]{1,40}\s+Department)\b"
+)
+ACTION_PATTERN = re.compile(
+    r"^\s*(?:please\s+|students?\s+(?:are|should|must)\s+(?:advised|required|requested)\s+to\s+)?"
+    r"(?:submit|fill(?:\s+in|\s+out)?|register|apply|pay|deposit|upload|collect|"
+    r"report|appear|attend|contact|verify|download|complete|present)\b[^.!?\n]*",
+    re.IGNORECASE,
+)
 
 
 def clean_text(text: str, page_texts: list[str] | None = None) -> str:
@@ -74,6 +95,49 @@ def _extract_pdf(pdf_url: str) -> tuple[str, str]:
     return text, "extracted" if text else "needs_ocr"
 
 
+def extract_metadata(notice: dict, text: str) -> dict:
+    """Keep supplied values and infer only missing notice metadata."""
+    metadata = {
+        "date": notice.get("date"),
+        "category": notice.get("category"),
+        "department": notice.get("department"),
+        "semester": notice.get("semester"),
+        "deadline": notice.get("deadline"),
+        "deadline_source_sentence": notice.get("deadline_source_sentence"),
+        "required_action": notice.get("required_action"),
+    }
+    source = "\n".join(value for value in (notice.get("title", ""), text) if value)
+    sentences = [line.strip() for line in re.split(r"(?<=[.!?])\s+|\n+", source) if line.strip()]
+
+    if not metadata["deadline"]:
+        for sentence in sentences:
+            if DEADLINE_CUE.search(sentence):
+                match = DATE_PATTERN.search(sentence)
+                if match:
+                    metadata["deadline"] = match.group(0)
+                    metadata["deadline_source_sentence"] = sentence
+                    break
+
+    if not metadata["semester"]:
+        match = SEMESTER_PATTERN.search(source)
+        if match:
+            metadata["semester"] = re.sub(r"\s+", " ", match.group(0)).strip()
+
+    if not metadata["department"]:
+        match = DEPARTMENT_PATTERN.search(source)
+        if match:
+            metadata["department"] = re.sub(r"\s+", " ", match.group(0)).strip()
+
+    if not metadata["required_action"]:
+        for sentence in sentences:
+            match = ACTION_PATTERN.search(sentence)
+            if match:
+                metadata["required_action"] = re.sub(r"\s+", " ", match.group(0)).strip()
+                break
+
+    return metadata
+
+
 def extract_notice_text(notice: dict) -> dict:
     """Return a copy with cleaned text, extraction status, and PDF provenance."""
     result = dict(notice)
@@ -83,17 +147,20 @@ def extract_notice_text(notice: dict) -> dict:
         result["text"] = clean_text(existing_text)
         result["extraction_status"] = "text_available"
         result["content_hash"] = hashlib.sha256(result["text"].encode("utf-8")).hexdigest()
+        result["metadata"] = extract_metadata(notice, result["text"])
         return result
 
     if not pdf_url:
         result["text"] = ""
         result["extraction_status"] = "no_text_or_pdf"
         result["content_hash"] = hashlib.sha256(b"").hexdigest()
+        result["metadata"] = extract_metadata(notice, "")
         return result
 
     result["pdf_url"] = pdf_url
     result["text"], result["extraction_status"] = _extract_pdf(pdf_url)
     result["content_hash"] = hashlib.sha256(result["text"].encode("utf-8")).hexdigest()
+    result["metadata"] = extract_metadata(notice, result["text"])
     return result
 
 
@@ -110,6 +177,7 @@ def main() -> None:
             result["text"] = ""
             result["extraction_status"] = "pdf_error"
             result["content_hash"] = hashlib.sha256(b"").hexdigest()
+            result["metadata"] = extract_metadata(notice, "")
             result["extraction_error"] = str(error)
             extracted.append(result)
 
