@@ -305,6 +305,29 @@ def link_notice_versions(notices: list[dict]) -> list[dict]:
     return notices
 
 
+def add_ingestion_status(notice: dict) -> dict:
+    """Record whether usable notice text was produced, with a failure reason."""
+    if notice.get("extraction_status") == "text_available" and notice.get("text", "").strip():
+        notice["ingestion_status"] = "success"
+        notice.pop("ingestion_failure_reason", None)
+        return notice
+
+    status = notice.get("extraction_status")
+    if status == "needs_ocr":
+        reason = "PDF has no extractable text; OCR is required."
+    elif status == "pdf_error":
+        error = notice.get("extraction_error", "unknown PDF extraction error")
+        reason = f"PDF extraction failed: {error}"
+    elif status == "no_text_or_pdf":
+        reason = "Notice has no text and no direct PDF link."
+    else:
+        reason = "No usable notice text was produced."
+
+    notice["ingestion_status"] = "failed"
+    notice["ingestion_failure_reason"] = reason
+    return notice
+
+
 def _parse_notice_date(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -359,6 +382,7 @@ def main() -> None:
             result["extraction_error"] = str(error)
             extracted.append(validate_notice(result))
 
+    extracted = [add_ingestion_status(notice) for notice in extracted]
     extracted = link_notice_versions(extracted)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(

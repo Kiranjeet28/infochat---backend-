@@ -31,6 +31,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -67,6 +68,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -103,6 +105,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -139,6 +142,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -175,6 +179,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -211,6 +216,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -247,6 +253,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -283,6 +290,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -319,6 +327,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -355,6 +364,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -391,6 +401,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -427,6 +438,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -463,6 +475,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -499,6 +512,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -536,6 +550,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.84,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "needs_review",
@@ -575,6 +590,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -611,6 +627,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -647,6 +664,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -684,6 +702,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.84,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "needs_review",
@@ -723,6 +742,7 @@
     ],
     "review_status": "needs_review",
     "extraction_confidence": 0.94,
+    "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
