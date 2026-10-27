@@ -339,6 +339,27 @@ def _parse_notice_date(value: str | None) -> datetime | None:
     return None
 
 
+def process_notices(notices: list[dict]) -> list[dict]:
+    """Process a batch independently so one malformed notice cannot stop it."""
+    extracted = []
+    for notice in notices:
+        try:
+            result = extract_notice_text(notice)
+        except Exception as error:
+            result = dict(notice)
+            _, pdf_url = _text_and_pdf_link(notice)
+            result["pdf_url"] = pdf_url
+            result["text"] = ""
+            result["extraction_status"] = "pdf_error"
+            result["content_hash"] = hashlib.sha256(b"").hexdigest()
+            result["metadata"] = extract_metadata(notice, "")
+            result["extraction_error"] = str(error)
+            result = validate_notice(result)
+        extracted.append(add_ingestion_status(result))
+
+    return link_notice_versions(extracted)
+
+
 def extract_notice_text(notice: dict) -> dict:
     """Return a copy with cleaned text, extraction status, and PDF provenance."""
     result = dict(notice)
@@ -367,23 +388,7 @@ def extract_notice_text(notice: dict) -> dict:
 
 def main() -> None:
     notices = json.loads(INPUT_PATH.read_text(encoding="utf-8"))
-    extracted = []
-    for notice in notices:
-        try:
-            extracted.append(extract_notice_text(notice))
-        except Exception as error:
-            result = dict(notice)
-            _, pdf_url = _text_and_pdf_link(notice)
-            result["pdf_url"] = pdf_url
-            result["text"] = ""
-            result["extraction_status"] = "pdf_error"
-            result["content_hash"] = hashlib.sha256(b"").hexdigest()
-            result["metadata"] = extract_metadata(notice, "")
-            result["extraction_error"] = str(error)
-            extracted.append(validate_notice(result))
-
-    extracted = [add_ingestion_status(notice) for notice in extracted]
-    extracted = link_notice_versions(extracted)
+    extracted = process_notices(notices)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(
         json.dumps(extracted, ensure_ascii=False, indent=2) + "\n",
