@@ -78,7 +78,7 @@ def _fetch_existing_chunks(
         response = session.get(
             endpoint,
             params={
-                "select": "notice_id,content_hash,chunk_index",
+                "select": "notice_id,content_hash,chunk_index,embedding",
                 "order": "notice_id.asc,chunk_index.asc",
                 "limit": PAGE_SIZE,
                 "offset": offset,
@@ -125,9 +125,9 @@ def _embed_rows(chunk_rows: list[dict[str, Any]]) -> tuple[int, int]:
     model = None
     model_error: str | None = None
     try:
-        from sentence_transformers import SentenceTransformer
+        from fastembed import TextEmbedding
 
-        model = SentenceTransformer(EMBEDDING_MODEL)
+        model = TextEmbedding(model_name=EMBEDDING_MODEL)
     except Exception as error:  # Model download, dependency, or runtime failure.
         model_error = f"{type(error).__name__}: {error}"[:1000]
 
@@ -143,7 +143,7 @@ def _embed_rows(chunk_rows: list[dict[str, Any]]) -> tuple[int, int]:
             continue
 
         try:
-            vector = model.encode(row["text"], normalize_embeddings=True).tolist()
+            vector = next(model.embed([row["text"]])).tolist()
             if len(vector) != EMBEDDING_DIMENSIONS:
                 raise ValueError(
                     f"Expected {EMBEDDING_DIMENSIONS} dimensions, got {len(vector)}"
@@ -162,6 +162,21 @@ def _embed_rows(chunk_rows: list[dict[str, Any]]) -> tuple[int, int]:
 def _chunks_are_current(
     notice: dict[str, Any], existing: list[dict[str, Any]], new_chunks: list[dict[str, Any]]
 ) -> bool:
+    if not existing or len(existing) != len(new_chunks):
+        return False
+    expected_indexes = set(range(len(new_chunks)))
+    return (
+        all(row.get("content_hash") == notice.get("content_hash") for row in existing)
+        and {row["chunk_index"] for row in existing} == expected_indexes
+        and all(row.get("embedding") is not None for row in existing)
+        and notice.get("index_version") == INDEX_VERSION
+    )
+
+
+def _chunk_structure_matches(
+    notice: dict[str, Any], existing: list[dict[str, Any]], new_chunks: list[dict[str, Any]]
+) -> bool:
+    """Check whether existing chunk rows can be selectively backfilled."""
     if not existing or len(existing) != len(new_chunks):
         return False
     expected_indexes = set(range(len(new_chunks)))
@@ -270,9 +285,17 @@ def split_and_load() -> tuple[int, int, int]:
                 except requests.RequestException as error:
                     failed_notices[notice_id] = f"Could not record indexed status: {error}"[:1000]
                 continue
-            if old_chunks:
-                delete_ids.add(notice_id)
-            chunk_rows_by_notice[notice_id] = new_chunks
+            if _chunk_structure_matches(notice, old_chunks, new_chunks):
+                missing_embedding_indexes = {
+                    row["chunk_index"] for row in old_chunks if row.get("embedding") is None
+                }
+                chunk_rows_by_notice[notice_id] = [
+                    row for row in new_chunks if row["chunk_index"] in missing_embedding_indexes
+                ]
+            else:
+                if old_chunks:
+                    delete_ids.add(notice_id)
+                chunk_rows_by_notice[notice_id] = new_chunks
 
         # Mark notices that are not eligible for chunking and remove any stale chunks.
         for notice in notices:

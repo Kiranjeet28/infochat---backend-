@@ -185,7 +185,7 @@ def extract_metadata(notice: dict, text: str) -> dict:
     """Keep supplied values and infer only missing notice metadata."""
     metadata = {
         "date": notice.get("date"),
-        "category": notice.get("category"),
+        "category": notice.get("category") or _infer_category(notice.get("title", ""), text),
         "department": notice.get("department"),
         "semester": notice.get("semester"),
         "deadline": notice.get("deadline"),
@@ -242,6 +242,23 @@ def extract_metadata(notice: dict, text: str) -> dict:
                 break
 
     return metadata
+
+
+def _infer_category(title: str, text: str) -> str | None:
+    """Infer a broad category when the source record does not supply one."""
+    def match_category(value: str) -> str | None:
+        source = value.casefold().replace("_", " ")
+        if re.search(r"\b(?:examinations?|exams?|results?|date sheet|centres?|centers?)\b", source):
+            return "Examinations"
+        if re.search(r"\b(?:readmission|struck[ -]?off)\b", source):
+            return "Student Affairs"
+        if re.search(r"\b(?:admissions?|admitted|original documents|id cards?)\b", source):
+            return "Admissions"
+        if re.search(r"\b(?:open electives?|electives?|semester|classes|progress presentation|detention|registration|course)\b", source):
+            return "Academics"
+        return None
+
+    return match_category(title) or match_category(text)
 
 
 def _valid_notice_date(value: str | None) -> bool:
