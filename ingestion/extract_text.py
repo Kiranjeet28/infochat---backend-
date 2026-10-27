@@ -22,9 +22,12 @@ REQUEST_TIMEOUT_SECONDS = 60
 PAGE_NUMBER = re.compile(r"^(?:page\s*)?\d+(?:\s*(?:of|/)\s*\d+)?$", re.IGNORECASE)
 DATE_PATTERN = re.compile(
     r"\b(?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+20\d{2})?|"
-    r"[A-Z][a-z]+\s+\d{1,2}(?:,?\s+20\d{2})?|\d{1,2}[/-]\d{1,2}[/-]20\d{2})\b"
+    r"[A-Z][a-z]+\s+\d{1,2}(?:,?\s+20\d{2})?|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\b"
 )
-DEADLINE_CUE = re.compile(r"\b(?:deadline|last date|on or before|by|due date|submit by)\b", re.IGNORECASE)
+DEADLINE_CUE = re.compile(
+    r"\b(?:deadline|last date|on or before|by|due date|submit by|up\s*to|upto|till|until|before)\b",
+    re.IGNORECASE,
+)
 SEMESTER_PATTERN = re.compile(
     r"\b(?:semester\s*(?:no\.?\s*)?\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s*semester|"
     r"(?:odd|even)\s*(?:semester|term)|(?:january|jan|july|jul)[- ](?:june|jun|december|dec)"
@@ -33,12 +36,23 @@ SEMESTER_PATTERN = re.compile(
 )
 DEPARTMENT_PATTERN = re.compile(
     r"\b(?:department\s+of\s+[A-Z][A-Za-z&()/ -]{1,50}|"
-    r"[A-Z][A-Za-z&()/ -]{1,40}\s+Department)\b"
+    r"[A-Z][A-Za-z&()/ -]{1,40}\s+Department|[A-Z]{2,6}\s+Dept\.?|"
+    r"[A-Z][A-Za-z&()/ -]{1,40}\s+Dept\.?)\b"
 )
 ACTION_PATTERN = re.compile(
-    r"^\s*(?:please\s+|students?\s+(?:are|should|must)\s+(?:advised|required|requested)\s+to\s+)?"
-    r"(?:submit|fill(?:\s+in|\s+out)?|register|apply|pay|deposit|upload|collect|"
+    r"^\s*(?:\d+[.)]\s*)?(?:please\s+|(?:eligible\s+)?students?\b[^.!?\n]{0,100}\b"
+    r"(?:can|may|must|should|are\s+(?:advised|directed|required|requested))\s+(?:to\s+)?|"
+    r"interested(?:\s+students)?\s+may\s+|students?\s+(?:are|should|must)\s+"
+    r"(?:advised|required|requested)\s+to\s+)?"
+    r"(?:submit|fill(?:ing|\s+in|\s+out)?|register|apply|pay|deposit|upload|collect|"
     r"report|appear|attend|contact|verify|download|complete|present)\b[^.!?\n]*",
+    re.IGNORECASE,
+)
+STUDENT_ACTION_PATTERN = re.compile(
+    r"\b(?:students?|applicants?|candidates?)\b[^.!?\n]{0,180}?"
+    r"\b(?:can|may|must|should|are\s+(?:advised|directed|required|requested))\s+(?:to\s+)?"
+    r"(?:submit|fill(?:ing|\s+in|\s+out)?|register|apply|pay|deposit|upload|collect|"
+    r"report|appear|attend|contact|verify|download|complete|present|view|make)\b[^.!?\n]*",
     re.IGNORECASE,
 )
 TOPIC_STOPWORDS = {
@@ -54,6 +68,7 @@ REPLACEMENT_CUE = re.compile(
 
 def clean_text(text: str, page_texts: list[str] | None = None) -> str:
     """Normalize whitespace and remove page numbers and repeated page furniture."""
+    text = text.replace("\ufffd", " ")
     repeated: set[str] = set()
     if page_texts and len(page_texts) > 1:
         normalized_pages = [
@@ -69,7 +84,7 @@ def clean_text(text: str, page_texts: list[str] | None = None) -> str:
 
     cleaned_lines: list[str] = []
     for line in text.splitlines():
-        line = re.sub(r"[ \t]+", " ", line).strip()
+        line = re.sub(r"[ \t\u00a0]+", " ", line).strip()
         if not line or PAGE_NUMBER.fullmatch(line):
             continue
         if line.casefold() in repeated:
@@ -93,7 +108,68 @@ def _text_and_pdf_link(notice: dict) -> tuple[str, str | None]:
         pdf_link = notice_url
 
     html_text = soup.get_text("\n", strip=True)
+
+    if pdf_link:
+        return "", pdf_link
+
+    if notice_url and len(html_text) >= 160 and not _is_api_summary(html_text):
+        return clean_text(html_text), None
+
+    # API htmlContent can be a short generated teaser. Prefer the official
+    # notice body and its PDF attachment whenever that teaser points students
+    # elsewhere for the actual details.
+    if notice_url:
+        try:
+            response = requests.get(notice_url, timeout=REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            page = BeautifulSoup(response.text, "html.parser")
+            editor = page.select_one(".ql-editor")
+            if editor:
+                for anchor in editor.select("a[href]"):
+                    href = anchor.get("href", "").strip()
+                    if ".pdf" in href.casefold():
+                        return "", urljoin(response.url, href)
+                official_text = editor.get_text("\n", strip=True)
+                if _is_link_instructions(official_text):
+                    return "", None
+                if official_text:
+                    return clean_text(official_text), None
+        except requests.RequestException:
+            # Keep the API text as a fallback when the official page is down.
+            pass
+
     return html_text, pdf_link
+
+
+def _is_api_summary(text: str) -> bool:
+    lowered = text.casefold()
+    return any(
+        phrase in lowered
+        for phrase in (
+            "check the erp noticeboard",
+            "check the erp notice",
+            "check erp for",
+            "refer to the complete",
+            "refer to the erp notice",
+            "refer to erp for",
+            "refer to the complete notice",
+            "read the complete notice",
+            "for full details",
+            "for all details and instructions",
+            "for further details",
+            "full notice on erp",
+            "essential document is now available for review",
+            "this schedule is for",
+            "has been issued",
+        )
+    )
+
+
+def _is_link_instructions(text: str) -> bool:
+    lowered = text.casefold()
+    return "click on the link" in lowered or (
+        "notice link" in lowered and ".pdf" in lowered
+    )
 
 
 def _extract_pdf(pdf_url: str) -> tuple[str, str]:
@@ -117,16 +193,30 @@ def extract_metadata(notice: dict, text: str) -> dict:
         "required_action": notice.get("required_action"),
     }
     source = "\n".join(value for value in (notice.get("title", ""), text) if value)
-    sentences = [line.strip() for line in re.split(r"(?<=[.!?])\s+|\n+", source) if line.strip()]
+    sentences = [
+        line.strip()
+        for line in re.split(r"(?<=[!?])\s+|(?<!\d)\.(?!\d)\s+|\n+", source)
+        if line.strip()
+    ]
 
     if not metadata["deadline"]:
         for sentence in sentences:
             if DEADLINE_CUE.search(sentence):
-                match = DATE_PATTERN.search(sentence)
-                if match:
+                matches = list(DATE_PATTERN.finditer(sentence))
+                if matches:
+                    cue = DEADLINE_CUE.search(sentence)
+                    dates_after_cue = [match for match in matches if match.start() >= cue.end()]
+                    match = dates_after_cue[0] if dates_after_cue else matches[-1]
                     metadata["deadline"] = match.group(0)
                     metadata["deadline_source_sentence"] = sentence
                     break
+    if not metadata["deadline"] and re.search(r"\b(?:submit|submission)\b", source, re.IGNORECASE):
+        for line in text.splitlines():
+            matches = list(DATE_PATTERN.finditer(line))
+            if len(matches) >= 2 and re.search(r"\bto\b|[-–—]", line, re.IGNORECASE):
+                metadata["deadline"] = matches[-1].group(0)
+                metadata["deadline_source_sentence"] = line.strip()
+                break
 
     if not metadata["semester"]:
         match = SEMESTER_PATTERN.search(source)
@@ -134,15 +224,21 @@ def extract_metadata(notice: dict, text: str) -> dict:
             metadata["semester"] = re.sub(r"\s+", " ", match.group(0)).strip()
 
     if not metadata["department"]:
-        match = DEPARTMENT_PATTERN.search(source)
-        if match:
-            metadata["department"] = re.sub(r"\s+", " ", match.group(0)).strip()
+        if "concerned department" not in source.casefold():
+            for match in DEPARTMENT_PATTERN.finditer(source):
+                department = re.sub(r"\s+", " ", match.group(0)).strip()
+                if not re.search(r"\b(?:schedule|submission|submitted)\b", department, re.IGNORECASE):
+                    metadata["department"] = department
+                    break
 
     if not metadata["required_action"]:
         for sentence in sentences:
-            match = ACTION_PATTERN.search(sentence)
+            match = ACTION_PATTERN.search(sentence) or STUDENT_ACTION_PATTERN.search(sentence)
             if match:
-                metadata["required_action"] = re.sub(r"\s+", " ", match.group(0)).strip()
+                action = re.sub(r"\s+", " ", match.group(0)).strip()
+                action = re.sub(r"^\d+[.)]\s*", "", action)
+                action = re.sub(r"\s+\d{1,2}$", "", action)
+                metadata["required_action"] = action
                 break
 
     return metadata
@@ -151,7 +247,10 @@ def extract_metadata(notice: dict, text: str) -> dict:
 def _valid_notice_date(value: str | None) -> bool:
     if not value:
         return False
-    for date_format in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+    for date_format in (
+        "%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y",
+        "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%y", "%m/%d/%y", "%d.%m.%y", "%d-%m-%y",
+    ):
         try:
             datetime.strptime(value.strip(), date_format)
             return True
@@ -221,6 +320,12 @@ def validate_notice(notice: dict) -> dict:
     elif deadline and metadata["deadline"] not in metadata["deadline_source_sentence"]:
         flags.append("deadline_not_found_in_source_sentence")
         score = max(0.0, score - 0.15)
+    elif deadline:
+        deadline_date = _parse_notice_date(deadline)
+        published_date = _parse_notice_date(notice_date)
+        if deadline_date and published_date and deadline_date.date() < published_date.date():
+            flags.append("deadline_precedes_notice_date")
+            score = max(0.0, score - 0.15)
 
     notice["review_flags"] = flags
     notice["review_status"] = "needs_review" if flags else "ok"
@@ -307,7 +412,7 @@ def link_notice_versions(notices: list[dict]) -> list[dict]:
 
 def add_ingestion_status(notice: dict) -> dict:
     """Record whether usable notice text was produced, with a failure reason."""
-    if notice.get("extraction_status") == "text_available" and notice.get("text", "").strip():
+    if notice.get("extraction_status") in {"text_available", "extracted"} and notice.get("text", "").strip():
         notice["ingestion_status"] = "success"
         notice.pop("ingestion_failure_reason", None)
         return notice
@@ -331,7 +436,10 @@ def add_ingestion_status(notice: dict) -> dict:
 def _parse_notice_date(value: str | None) -> datetime | None:
     if not value:
         return None
-    for date_format in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+    for date_format in (
+        "%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y",
+        "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%y", "%m/%d/%y", "%d.%m.%y", "%d-%m-%y",
+    ):
         try:
             return datetime.strptime(value.strip(), date_format)
         except ValueError:

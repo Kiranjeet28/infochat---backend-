@@ -11,7 +11,7 @@ def make_notice(**overrides):
         "_id": "good-1",
         "title": "Fee payment notice",
         "date": "October 1, 2026",
-        "url": "https://erp.gndec.ac.in/noticeboard/fee-payment",
+        "url": "",
         "htmlContent": "<p>Pay the fee by 15 October 2026.</p>",
         "source": {
             "api_url": "https://api.example.test/api/notices?page=1&pageSize=9&sort=latest",

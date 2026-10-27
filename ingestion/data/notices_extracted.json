@@ -12,19 +12,19 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/schedule-for-end-semester-makeup-examination-may-2026",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "Schedule for End Semester Makeup Examination\nThis schedule is for\nMay-2026\nexaminations.\nCheck the ERP noticeboard for full details.",
+    "text": "No. COE/155/772 Date:02-09-2026\nSchedule for End Semester Makeup Examination May-2026.\n1.Filling of Makeup Exam Forms 3.9.2026 to 7.9.2026 (up to 12 p.m.)\n2.Date sheet will be notified on 8. 9.2026\n3.Conduct of Makeup Exam 11.9.2026 onwards\nController of Examination",
     "extraction_status": "text_available",
-    "content_hash": "87467487534229b029107ff71fbfcd08b8ea3a13f9779c2fa6d6e22da2f69951",
+    "content_hash": "edb03ccf89fa0541ab2d9b441d82f199ae33abfbddf7f70d43ad1c96dac3fc5d",
     "metadata": {
       "date": "September 2, 2026",
       "category": null,
       "department": null,
       "semester": null,
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "deadline": "7.9.2026",
+      "deadline_source_sentence": "1.Filling of Makeup Exam Forms 3.9.2026 to 7.9.2026 (up to 12 p.m.)",
+      "required_action": "Filling of Makeup Exam Forms"
     },
     "review_flags": [
       "missing_category"
@@ -49,19 +49,19 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/examination-form-filling-process-of-makeup-examination-may-2026",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "Examination form filling process\nfor\nMakeup Examination May-2026\nis announced.\nStudents are advised to check the ERP notice.\nRefer to the complete announcement on ERP for all details and instructions.",
+    "text": "No. COE/155/771 Dated:029-2026\nExamination form filling process of Makeup Examination of End Semester Examinations May-2026 begins on 03-09-2026 and will remain continue upto 07-09-2026 till (12:00 pm).\nEligible students for makeup examination can fill the Examination Form from the website link\nhttps://academics.gndec.ac.in/\nby paying applicable fees of Rs. 1000/- per subject.\nThe student can fill maximum two regular subjects for UG courses and one regular subject for PG courses offered in the respective semester.\nController of Examination",
     "extraction_status": "text_available",
-    "content_hash": "63b87ffea1c19dbaf6102f1e6382def4c9d00d4f2d2da6ee75b5feb977f80438",
+    "content_hash": "9d190e3629bae08ccbd9f90dd9b96e32b4f772cd80b4ee80f6a58cec3d6b257a",
     "metadata": {
       "date": "September 2, 2026",
       "category": null,
       "department": null,
       "semester": null,
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "deadline": "07-09-2026",
+      "deadline_source_sentence": "Examination form filling process of Makeup Examination of End Semester Examinations May-2026 begins on 03-09-2026 and will remain continue upto 07-09-2026 till (12:00 pm)",
+      "required_action": "Eligible students for makeup examination can fill the Examination Form from the website link"
     },
     "review_flags": [
       "missing_category"
@@ -86,11 +86,12 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/re-opening-of-online-registration-process-for-the-courses-detention-july-dec-2026",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "The\nOnline Registration Process\nhas been\nRe-opened!\nThis is for\nCourse(s) Detention (July-Dec, 2026)\n.\nComplete your registration promptly.\nRefer to the ERP notice for full details.",
-    "extraction_status": "text_available",
-    "content_hash": "f48b0fcec88497dfa920be590ac4248c0538c024b0313046305be8a4e57714f6",
+    "pdf_url": "https://erp.gndec.ac.in/files/Re-opening%20of%20online%20registration%20process%20for%20the%20course%20detention%20Jul-Dec,%202026.pdf",
+    "text": "",
+    "extraction_status": "needs_ocr",
+    "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "metadata": {
       "date": "September 2, 2026",
       "category": null,
@@ -98,14 +99,16 @@
       "semester": "JULY-DEC, 2026",
       "deadline": null,
       "deadline_source_sentence": null,
-      "required_action": "Complete your registration promptly"
+      "required_action": null
     },
     "review_flags": [
+      "missing_text",
       "missing_category"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.94,
-    "ingestion_status": "success",
+    "extraction_confidence": 0.74,
+    "ingestion_status": "failed",
+    "ingestion_failure_reason": "PDF has no extractable text; OCR is required.",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -123,19 +126,20 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/original-documents-collection-notice-for-newly-admitted-ug-pg-students-in-2026",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "Original Documents Collection Notice\nFor\nNewly Admitted UG/PG Students\n.\nRegarding admissions in\n.\nCheck the full notice on ERP for details.",
-    "extraction_status": "text_available",
-    "content_hash": "c4958e1cfd97f2f0cbcc7a8d33bc112be80c8f0d1c18c74794dd249f55c4710c",
+    "pdf_url": "https://erp.gndec.ac.in/files/Original%20Documents%20Collection%20Notice%202026.pdf",
+    "text": "GURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\n[Academic Section)\nNo.AS/s6/28D3 pATEpt2soa-2026\nURGENT NOTICE\nThe final Eligibility Checking process by the IKG Punjab Technical University for the admissions-2026\nis going to start soon, hence all the students of UC courses (AICTE/UGC) admitted in session 2026-27\nare directed to submit their: -\n\"All admission related original documents, in their respective departments, in proper display\nzip folder {Light Weight Transparent), labeled with Student's Name, Course, Branch, College\nRoll Number and Mobile number of the concerned student on the cover of the folder\"\nThe students as per following schedule must submit all the above-mentioned documents: -\nCourse Schedule of Submission To be submitted in Dept.\n(Working Days)\nB.Tech.-1st Year Applied Science Dept.\nB.Tech.-Lateral Entry,\nBBA/B.C0M./MBA, 26-08-26 to 09-09-26\nBCA/MCA, Concerned Department\nM.TECH.,\nB.V0C. (lDJ/B.Arch.\nFailure to submit the original documents, leads to cancellation of allotted seat, for which the\ninstitute will have no responsibility. Before submission of undermentioned original\ndocuments, a pdf file of the same must be uploaded at admission.gndec.ac,in through students\nlogin upto 1.5mb fite. Once the file is accepted it will not be returned to scan any document until the\nuniversity.\nadmission is finally approved by the .\nThe students must submit the following original documents (as applicable): -\n1.\nProvisional Seat Allotment Letter/ Seat Confirmation Letter (ifadmitted through IKGPTU Counselling)\n2. Admission Fee Slip (1* Semester Fee)\n3.\n1oth DMC Certificate\n4.\nlZth DMC Certificate\n5. All DMCs of Diploma (B.Tech.-Lateral EntryJ /All Graduation DMCs (PG Cases)\n6.\nMigrationCertificate\n7.\nAPAAR lD Document\n8.\nAadhar Card of Student\n9. Residence Certificate OR any Residence Proof/Residence Proof-from School's Principal (for Pb. ResidentsJ\n10. Reservation Category Certificate - SC/ST, BC/0BC/ Border Area, Backward Area, Single Girl Child etc. (lfany)\n11. Income Affidavit/lncome Certiftcate (Compulsory) [in case of Tuition Fee WaiverJ\n12. RuralArea Education/ Rural Area Residence Certificates [As applicable)\n13. GAP Certificate (if any)\nDR cademic)\n\\h/\nDistribution: -\n1.\nAll HoD's\n2.\nO.l/C Computer Centre (uploading on home page ofgndec.ac.in)\n3.\nDealing Hand/Office copy",
+    "extraction_status": "extracted",
+    "content_hash": "39211a7246c9a4b34ad9ea12f118f1bb4076a1893a5b205f7afaa3fcd5126bbb",
     "metadata": {
       "date": "August 25, 2026",
       "category": null,
       "department": null,
       "semester": null,
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "deadline": "09-09-26",
+      "deadline_source_sentence": "BBA/B.C0M./MBA, 26-08-26 to 09-09-26",
+      "required_action": "students as per following schedule must submit all the above-mentioned documents: -"
     },
     "review_flags": [
       "missing_category"
@@ -160,19 +164,20 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/original-documents-uploading-notice-2026",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "Original Documents Uploading Notice 2026\nhas been issued.\nIt was published on\nAugust 18, 2026\n.\nFor full details, please refer to the complete notice at:\nhttps://erp.gndec.ac.in/noticeboard/original-documents-uploading-notice-2026",
-    "extraction_status": "text_available",
-    "content_hash": "a62593346ab3c879157daa70bc7f1bbb6f77ea34253e9784e04ed55e67727171",
+    "pdf_url": "https://erp.gndec.ac.in/files/Original%20Documents%20Uploading%20Notice%202026.pdf",
+    "text": "GURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\n(Academic Section)\nNo.^s/s6/ R777 pATEDt tg-08-2026\nURGENT NOTICE\nAll the UG/PG students admitted in session 2026-27 are directed to upload their all\noriginal documents [scanned from Original Coloured documents) through their GNDEC\nregistration ID login portal at admission.gndec.ac.in upto 1.Smb file size in pdf format\nbefore 28/08/2026. (Black & White scanning is not allowd).\nOnly after uploading of this pdf file, the original documents file will be accepted for final\nadmission approval by the university. Once the file is accepted it will not be returned to\nscan any document until the admission is finally approved by the university.\nThe students must upload the following scanned original documents (as applicable): -\n1. Provisional Seat Allotment Letter/ Seat Confirmation Letter (if admitted through IKGPTU CounsellingJ\n2.\nAdmission Fee Slip [L't Semester FeeJ\n3.\n1Oth DMC Certificate\n4.\n1zth DMC Certificate\n5. All DMCs of Diploma (B.Tech.-Lateral Entry) /All Graduatioll DMCs IPG Cases)\n6.\nMigration Certificate\n7.\nAPAAR ID Document\nB. Aadhar Card ofStudent\n9. Residence Certificate OR any Residence Proof /Residence Proof -from School's Principal (for Pb. Residents)\n10. Reservation Category Certificate - SC/ST, BC/OBC/ Border Area, Backward Area, Single Girl Child etc. (If any)\n11. Income Affidavit/Income Certificate (Compulsory) [in case of Tuition Fee Waiver)\n12. Photocopy of Income Certificate fCompulsory) in case of PMS - SC Scholarship)\n13. Rural Area Education/ Rural Area Residence Certificates (As applicableJ\n14. GAP Certificate (if any)\nics)\nDistribution:\nL. All HoDs - Inform the students to upload documents timely.\n2. AdmissionCoordinators\n3.\n0ffice Copy",
+    "extraction_status": "extracted",
+    "content_hash": "2da2bb2fd736088f1fffa40390e0ee2a9b3972dc1adb417916fd927cddf1e5f4",
     "metadata": {
       "date": "August 18, 2026",
       "category": null,
       "department": null,
       "semester": null,
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "deadline": "28/08/2026",
+      "deadline_source_sentence": "before 28/08/2026. (Black & White scanning is not allowd)",
+      "required_action": "students admitted in session 2026-27 are directed to upload their all"
     },
     "review_flags": [
       "missing_category"
@@ -197,25 +202,27 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/id-cards-final-notice-2026",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "ID Cards Final Notice 2026\nRead the complete notice for further details.",
-    "extraction_status": "text_available",
-    "content_hash": "f6f124ac5e0bcd82892faf4881a94a58fc4f4cd2572d77fbf98ff7020d7e8278",
+    "pdf_url": "https://erp.gndec.ac.in/files/ID%20Cards%20Final%20Notice%202026.pdf",
+    "text": "GURU NANAK DEV ENGINEERING COILEGE, LUDHIANA\n(Academic Section)\nNo.AS/s6/ 2118 DATEp: lg-08-2026\nURGENT NOTICE\nAll the UG/PG students admitted in session 2026-27 are directed to make their ID Cards\nby booking their convenient slot upto 21/08/2025. After that no further request in this\nmatter will be entertained. Venue for ID Cards preparation is in Admission Cell.\nDR\nDistribution\n1. All HoDs\nZ. AdmissionCoordinators\n3. Mr. Amandeep Singh Bhathal, Overall I/C (lD Card Team)- to complete the task on time.\n4.\nOffice Copy.",
+    "extraction_status": "extracted",
+    "content_hash": "99dc7c5bbb0e37a8ed96f09ae78c4d3b790c30df5db434d88583d1eeefb2a6fd",
     "metadata": {
       "date": "August 18, 2026",
       "category": null,
       "department": null,
       "semester": null,
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "deadline": "21/08/2025",
+      "deadline_source_sentence": "by booking their convenient slot upto 21/08/2025. After that no further request in this",
+      "required_action": "students admitted in session 2026-27 are directed to make their ID Cards"
     },
     "review_flags": [
-      "missing_category"
+      "missing_category",
+      "deadline_precedes_notice_date"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 0.79,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -234,11 +241,12 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/readmission-notice-12-040826",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "New:\nReadmission Notice 12\n.\nPublished on\nAugust 4, 2026\n.\nThe original content is \"Readmission_Notice 12_04.08.26\".\nCheck ERP for further context and information.",
-    "extraction_status": "text_available",
-    "content_hash": "cd0cb175737f00751aedfda4554adc53fc4a237d889cd8a2404fcfb7a449b25e",
+    "pdf_url": "https://erp.gndec.ac.in/files/Readmission_Notice%2012_04.08.26.pdf",
+    "text": "GURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\n(Academic Section)\nE-No.//12 Date:-04-08-2026\nReadmitted Notice\nThe name of the below mentioned students are being readmitted in college rolls on behalf of information received from concerned\ndepartment. The details are as under:-\nProgram College Roll University Student Name Father Name Semester Remarks\nNo. Roll No.\nElectrical 2516137 2435248 Akashdeep Singh Harvinder Singh 4 Readmission ref.\nEngineering(B.Tech.) IKGPTU/DA/1977\ndt.25/06/2026, vide\nReadmission fee\nslip ref. 13565 dt.\n07/07/2026\nRs.2500/-. (Was\nStruck-off due to\nExam Form\nNov-2025 not\nfilled)\nMechanical 2530101 2435701 Ashwani Kumar Anil Kumar 4 Readmission ref.\nEngineering(B.Tech.) IKGPTU/DA/1977\ndt.25/06/2026, vide\nReadmission fee\nslip ref.\n125841812218 dt.\n06/07/2026\nRs.2500/-. (Was\nStruck-off due to\ndetained in all\nsubjects)\nSd/-\nDeputy Registrar\nDistribution:\n1.Online College Notice Board\nE-Print Date: 04-08-2026\nPowered by TCPDF (www.tcpdf.org)",
+    "extraction_status": "extracted",
+    "content_hash": "1bd41bb429d8c883cd4d7f90859ba77d7d7818cefa04de7d8baee1b7a5decbe4",
     "metadata": {
       "date": "August 4, 2026",
       "category": null,
@@ -271,19 +279,19 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/six-months-progress-presentation-of-ms-ritu-phd-regd-no1903009-urn-1935251",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "Six Months Progress Presentation\nOf\nMs. Ritu, PhD.\nRegd. No.\n,\nURN\n.",
+    "text": "The Six Months Progress Presentation of Ms. Ritu, PhD research scholar Regd. No.1903009, URN 1935251 of Computer Science and Engineering Department will be held on 03rd August,2026 (Monday) at 2:00 PM onwards at CSE Dept. Interested may attend the same.\nSD/-",
     "extraction_status": "text_available",
-    "content_hash": "be2a2c0a72ae2d236d900d3b62e2a804bfd217986474a89ddaba6cd15eb555bf",
+    "content_hash": "4b1b6d3797054f90cdd67c8b00fe19da03c2534ac2734e26ae36e01ad1bee817",
     "metadata": {
       "date": "July 28, 2026",
       "category": null,
-      "department": null,
+      "department": "Computer Science and Engineering Department",
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
-      "required_action": null
+      "required_action": "Interested may attend the same"
     },
     "review_flags": [
       "missing_category"
@@ -308,11 +316,11 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=1&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/struck-off-notice-43-250726pdf",
-      "fetched_at": "2026-10-27T05:32:26.078665+00:00"
+      "fetched_at": "2026-10-27T05:38:17.883527+00:00"
     },
-    "text": "Official notice:\nStruck_off_Notice_43_25.07.26.pdf\n.\nThis essential document is now available for review.\nAccess the full PDF at\nhttps://erp.gndec.ac.in/noticeboard/struck-off-notice-43-250726pdf\n.\nPublished by\nadministrator\non\nJuly 28, 2026\n.",
-    "extraction_status": "text_available",
-    "content_hash": "fe7f756c5030f1603c71991605e1c99923fbc5b34a4eee84fa01f9cfdd1feede",
+    "text": "",
+    "extraction_status": "no_text_or_pdf",
+    "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "metadata": {
       "date": "July 28, 2026",
       "category": null,
@@ -323,11 +331,13 @@
       "required_action": null
     },
     "review_flags": [
+      "missing_text",
       "missing_category"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.94,
-    "ingestion_status": "success",
+    "extraction_confidence": 0.74,
+    "ingestion_status": "failed",
+    "ingestion_failure_reason": "Notice has no text and no direct PDF link.",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -345,11 +355,11 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/the-provisional-results-of-the-end-semester-examinations-may-2026",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "Provisional Results\nfor the\nEnd Semester Examinations May 2026\nare now available.",
+    "text": "The\nprovisional results\nof the\nEnd Semester Examinations May 2026\nfor\nRegular and Reappear\nstudents have been declared.\nStudents can view their results at the following portal:\nOnroll-Students\n:\nhttps://academics.gndec.ac.in/\nEx-Students\n:\nhttps://academics.gndec.ac.in/ex_student/\nController of Examinations",
     "extraction_status": "text_available",
-    "content_hash": "583f62b40b1b6f5a3b128523b37707ff0eb8e6891ce4cf95e51dd0c87dad39df",
+    "content_hash": "1fc723e7a28e0aba70cf4a42c7e7afca22a0af9b1d43613c9aa1b28cb4bea6eb",
     "metadata": {
       "date": "July 23, 2026",
       "category": null,
@@ -357,7 +367,7 @@
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
-      "required_action": null
+      "required_action": "Students can view their results at the following portal:"
     },
     "review_flags": [
       "missing_category"
@@ -382,11 +392,12 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/notice-regarding-classes-of-odd-semester",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "Notice regarding classes of Odd Semester\nA notice has been published\nconcerning the\nOdd Semester classes\n.\nRefer to the original notice for more information.",
-    "extraction_status": "text_available",
-    "content_hash": "5bf888540ffddb7769eb39e489441c49d915ea400e94583ef34d4538f8d5fecc",
+    "pdf_url": "https://gndec.ac.in/sites/default/files/Session27726.pdf",
+    "text": "",
+    "extraction_status": "needs_ocr",
+    "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "metadata": {
       "date": "July 23, 2026",
       "category": null,
@@ -397,11 +408,13 @@
       "required_action": null
     },
     "review_flags": [
+      "missing_text",
       "missing_category"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.94,
-    "ingestion_status": "success",
+    "extraction_confidence": 0.74,
+    "ingestion_status": "failed",
+    "ingestion_failure_reason": "PDF has no extractable text; OCR is required.",
     "supersedes_id": null,
     "superseded_by": null,
     "version_status": "no_match"
@@ -419,19 +432,20 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/list-of-oe-sem-3rd25-29-session-july-dec2026",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "Open Elective (OE) List for 3rd Sem\nFor\n(2025-2029) session students\n,\nThe list for\nJuly-December 2026\nis now available.\nRefer to the complete notice on ERP for details.",
-    "extraction_status": "text_available",
-    "content_hash": "e6d02e68e29accc7f188aae0109c668f239a2af94ce20a7d89a2cb377724baad",
+    "pdf_url": "https://erp.gndec.ac.in/files/List%20of%20OE%20sem%203rd(25-29)%20%20session%20july-dec.2026.pdf",
+    "text": "Guru Nanak Dev Engineering College, Ludhiana\nAn Autonomous College under UGC Act 1956\n(Academic Section)\nNo. AS/81/2725 Date: 17.07.2026\nCIRCULAR\nList for Open Electives to be opted by students of B.Tech. 3rd Semester of Batch 2025-29 under Scheme\nCode-2024 for Session July-Dec, 2026 is enclosed herewith. Following are the important guidelines for\nstudents:\n1. Any number of 12-week courses can be opted from the list enclosed which shall be considered as\n‘Open Elective-I/Open Elective-II/Open Elective-III’, if qualified and consent will be taken from\nstudents as per the process listed below. Upon successful completion of the courses, the student\nwill be exempted from attending ‘Open Elective-I/II/III’ courses when offered later in classroom\nteaching mode as per study scheme.\nProcess: There will be flexibility given to the students so that they can choose which of the\nsuccessfully qualified NPTEL courses should be considered as Open Elective-I, II, III for their\nB.Tech. Programme. For this case, consent will be taken from students as per following timeline:\n(i) For Open Elective-I, consent will be taken before the start of 6th Sem for NPTEL courses\nsuccessfully qualified by them during 3rd Sem to 5th Sem.\n(ii) For Open Elective-II and III, consent will be taken before the start of 7th Sem (if students have\nto undergo six month training in 8th Sem) and before the start of 8th Sem (if students have\nundergone six month training in 7th Sem) for NPTEL courses successfully qualified by them\nduring 3rd Sem to 6th Sem.\n(iii) In case students have qualified NPTEL courses, but are not satisfied with the grades and they\ndo not wish any of these to be considered as OE-I/OE-II/OE-III, in such case, they can opt for\nclassroom teaching also in 6th/ 7th/ 8th Semester as per study scheme of department.\nStudent should ensure whether his/her program is mentioned under ‘Applicable UG Engg.\nProgram’ before enrolling for NPTEL course.\n2. Parent department will collect the information of students who enrolls in these courses such as\nNPTEL Roll No., NPTEL email as a proof etc.\n3. On successfully qualifying the online course, student should submit a self-attested copy of final\ncertificate issued by NPTEL to the parent department. Respective department and SPOC,\nSwayam-NPTEL Local Chapter of GNDEC shall verify the certificate.\n4. Percentage scored in NPTEL Online Certification Exam will be mapped to End Sem Exam (ESE)\nMarks (i.e. out of 100 marks) and then to respective grades, hence ‘3’ credits will be transferred\nfor each 12-week course and considered as per study scheme of respective department. Grades\nobtained in NPTEL courses will be considered towards B.Tech. Programme, only if the course is\nsuccessfully qualified and obtained atleast 40% qualifying criteria as per College Examination\nrules. Moreover, there will be a provision of classroom teaching as per study scheme for the\nstudents, who wouldn’t be able to qualify through Swayam-NPTEL platform. Evaluation of\ncourses taught in classroom will be same as per existing method of assessment.\n5. Steps for enrolling and registering in NPTEL course are given below (An example is shown\nhere):\n(i) Go to the Course URL given in the list enclosed and click on ‘Join’.\n(ii) Update Profile i.e. Personal Details and Education Details. It is mandatory for student to select\nGNDEC as Swayam Local Chapter, fill college details as given below. Kindly note that\n‘University Roll Number’ is to be filled in section ‘College/School Roll No.’. Then, ‘Update\nProfile and Join Course’.\n(iii) Student will get an email confirming the course enrolment. Afterwards, he/she can start\nattending the course week wise. Student will have to fulfill the eligibility and qualification\ncriteria as per NPTEL course guidelines from time to time.\n(iv) As per timeline notified by NPTEL, student has to do registration for enrolled course for\nappearing in the exam; ‘Click to register for Certification Exam’.\n(v) On ‘Exam Dashboard’, Go to ‘Personal Info’, fill the required information.\n(vi) Fill ‘Student Specific Details’ i.e. College Name, Degree, Department, Year of Study,\nAPAAR/ABC ID etc. Student has to tick ‘Yes’, when asked about sharing scores with\ncollege.\n(vii) ‘Add Course’ for payment; select ‘Exam Date’ and ‘Exam Cities’. Further ‘Confirm and Pay’.\nPay Applicable Exam Fee.\nNote: If student does not share information with GNDEC Swayam-NPTEL Local Chapter at any\nstep while enrolling or registering for the course, then the course shall not be considered by\nthe college.\n6. Student must keep visiting NPTEL official website https://onlinecourses.nptel.ac.in/ for updated\ninformation.\n7. Kindly note that the aforementioned steps may be subject to change based on NPTEL’s specific\nprocedures. So, the student must register carefully.\nEncl: List of Open Electives offered through Swayam-NPTEL platform for B.Tech. 3rd Semester of Batch\n2025-29 under Scheme Code-2024 for Session July-Dec, 2026.\nSd/-\nAR (Academics)\nCc: (i) Principal- for information, please, (ii) All HoDs (UG Engineering), (iii) Dean Academics- for information,\nplease. (iv) SPOC-Swayam NPTEL Local Chapter, (v) Mr. Ajay Verma- for uploading on Notice Board, (vi)\nDealing Hand- Ms. Satwinder Kaur\nGURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\nList of Open Electives offered through Swayam-NPTEL Platform for B.Tech. 3rd Semester of Batch 2025-29 (Scheme Code-2024) for July-Dec, 2026\nS. Course Id Course Name Institute Course URL Offering Applicable UG Engg. Course\nNo. Dept. Programs Start Date\n1 noc26- Remote Sensing: Principles IIT https://onlinecourses.nptel.ac.in/e- CE CSE, EE, ECE, IT, ME, 20-Jul-26\nce115 and Applications Bombay learning/preview/noc26_ce115 RAI\n2 noc26- Introduction to Multimodal IIT https://onlinecourses.nptel.ac.in/e- CE CSE, EE, ECE, IT, 20-Jul-26\nce137 Urban Transportation Kharagpur learning/preview/noc26_ce137 ME,RAI\nSystems (MUTS)\n3 noc26- Municipal Solid Waste IIT https://onlinecourses.nptel.ac.in/e- CE CSE, EE, ECE, IT, 20-Jul-26\nce153 Management Guwahati learning/preview/noc26_ce153 ME,RAI\n4 noc26- Optimization Methods for IIT https://onlinecourses.nptel.ac.in/e- CE CSE, EE, ECE, IT, 20-Jul-26\nce158 Civil Engineering Guwahati learning/preview/noc26_ce158 ME,RAI\n5 noc26- Basics of Materials IIT Madras https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, ECE, IT 20-Jul-26\nme165 Engineering learning/preview/noc26_me165\n6 noc26- Mechanics IIT https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, ECE, IT 20-Jul-26\nme147 Roorkee learning/preview/noc26_me147\n7 noc26- Thermodynamics IIT https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, ECE, IT 20-Jul-26\nme135 Palakkad learning/preview/noc26_me135\n8 noc26- Artificial Intelligence and IIT Kanpur https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, ECE, IT 20-Jul-26\nmm76 Machine Learning in learning/preview/noc26_mm76\nMaterials Engineering\n9 noc26- Fundamentals of Solar IIT Kanpur https://onlinecourses.nptel.ac.in/e- ME CE, CSE, ECE, IT 20-Jul-26\nph34 Photovoltaics and learning/preview/noc26_ph34\nTechnologies\n10 noc26- Electrical Measurement and IIT https://onlinecourses.nptel.ac.in/e- EE CE, CSE, IT, ME,RAI 20-Jul-26\nee171 Electronic Instruments Kharagpur learning/preview/noc26_ee171\n11 noc26- Control systems IIT Madras https://onlinecourses.nptel.ac.in/e- EE CE, CSE, IT, ME,RAI 20-Jul-26\nde27 learning/preview/noc26_de27\n12 noc26- Sustainable Energy IIT https://onlinecourses.nptel.ac.in/e- EE CE, CSE, ECE, IT, 20-Jul-26\nme141 Technology Hyderabad learning/preview/noc26_me141 ME,RAI\n13 noc26- Digital Circuits IIT https://onlinecourses.nptel.ac.in/e- ECE CE, ME,RAI 20-Jul-26\nee177 Kharagpur learning/preview/noc26_ee177\n14 noc26- Analog Communication IIT https://onlinecourses.nptel.ac.in/e- ECE CE, CSE, EE, IT, 20-Jul-26\nee180 Kharagpur learning/preview/noc26_ee180 ME,RAI\n15 noc26- Network Theory IIT Delhi https://onlinecourses.nptel.ac.in/e- ECE CE, CSE, IT, ME,RAI 20-Jul-26\nee97 learning/preview/noc26_ee97\n16 noc26- Computer Networks IIT Indore https://onlinecourses.nptel.ac.in/e- CSE CE, EE, ME,RAI 20-Jul-26\ncs99 learning/preview/noc26_cs99\n17 noc26- Data Structure and IIT https://onlinecourses.nptel.ac.in/e- CSE CE, EE, ECE, ME,RAI 20-Jul-26\ncs162 Algorithms using Java Kharagpur learning/preview/noc26_cs162\n18 noc26- Operating System IIT https://onlinecourses.nptel.ac.in/e- CSE CE, EE, ECE, ME,RAI 20-Jul-26\ncs156 Fundamentals Kharagpur learning/preview/noc26_cs156\n19 noc26- Privacy and Security in IIIT https://onlinecourses.nptel.ac.in/e- IT CE, EE, ECE, ME,RAI 20-Jul-26\ncs141 Online Social Media Hyderabad learning/preview/noc26_cs141\n* Visit NPTEL official website for updated Information: https://onlinecourses.nptel.ac.in/\nCourse\nEnrolment\nLast Date*\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26\n27-Jul-26",
+    "extraction_status": "extracted",
+    "content_hash": "751f6f11f6785ace30b2aad1d7097f5ba186a374d95b00b26e72804f402f2b0b",
     "metadata": {
       "date": "July 17, 2026",
       "category": null,
       "department": null,
       "semester": "july-dec",
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "deadline": "6th Sem",
+      "deadline_source_sentence": "(i) For Open Elective-I, consent will be taken before the start of 6th Sem for NPTEL courses",
+      "required_action": "student should submit a self-attested copy of final"
     },
     "review_flags": [
       "missing_category"
@@ -456,19 +470,20 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/list-of-oe-sem-5th24-28-session-july-dec2026",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "List of OE\nfor\nsem 5th\n.\n(24-28) session\n,\nJuly-Dec.2026\n.",
-    "extraction_status": "text_available",
-    "content_hash": "d1281319bad0f22b30f9d6db3ec972948ec1cf0a507902bdf4ffdab4df9c2141",
+    "pdf_url": "https://erp.gndec.ac.in/files/List%20of%20OE%20sem%205th(24-28)%20session%20july-dec.2026.pdf",
+    "text": "Guru Nanak Dev Engineering College, Ludhiana\nAn Autonomous College under UGC Act 1956\n(Academic Section)\nNo. AS/81/2726 Date: 17.07.2026\nCIRCULAR\nList for Open Electives to be opted by students of B.Tech. 5th Semester of Batch 2024-28 under Scheme\nCode-2024 for Session July-Dec, 2026 is enclosed herewith. Following are the important guidelines for\nstudents:\n1. Any number of 12-week courses can be opted from the list enclosed which shall be considered as\n‘Open Elective-I/Open Elective-II/Open Elective-III’, if qualified and consent will be taken from\nstudents as per the process listed below. Upon successful completion of the courses, the student\nwill be exempted from attending ‘Open Elective-I/II/III’ courses when offered later in classroom\nteaching mode as per study scheme.\nProcess: There will be flexibility given to the students so that they can choose which of the\nsuccessfully qualified NPTEL courses should be considered as Open Elective-I, II, III for their\nB.Tech. Programme. For this case, consent will be taken from students as per following timeline:\n(i) For Open Elective-I, consent will be taken before the start of 6th Sem for NPTEL courses\nsuccessfully qualified by them during 3rd Sem to 5th Sem.\n(ii) For Open Elective-II and III, consent will be taken before the start of 7th Sem (if students have\nto undergo six month training in 8th Sem) and before the start of 8th Sem (if students have\nundergone six month training in 7th Sem) for NPTEL courses successfully qualified by them\nduring 3rd Sem to 6th Sem.\n(iii) In case students have qualified NPTEL courses, but are not satisfied with the grades and they\ndo not wish any of these to be considered as OE-I/OE-II/OE-III, in such case, they can opt for\nclassroom teaching also in 6th/ 7th/ 8th Semester as per study scheme of department.\nStudent should ensure whether his/her program is mentioned under ‘Applicable UG Engg.\nProgram’ before enrolling for NPTEL course.\n2. In the list enclosed, if any NPTEL course is being re-run in this session also; it can be opted by\nstudents, only if he/she wishes an improvement in grades or he/she has failed previously.\nOtherwise, enrolment in this course will be considered null. As an example, course “Introduction\nto Industry 4.0 and Industrial Internet of Things (noc26-cs160)” is being re-run in this session\nalso and was also offered in previous sessions July-Dec, 2025 as well as Jan-June, 2026.\n3. Parent department will collect the information of students who enrolls in these courses such as\nNPTEL Roll No., NPTEL email as a proof etc.\n4. On successfully qualifying the online course, student should submit a self-attested copy of final\ncertificate issued by NPTEL to the parent department. Respective department and SPOC,\nSwayam-NPTEL Local Chapter of GNDEC shall verify the certificate.\n5. Percentage scored in NPTEL Online Certification Exam will be mapped to End Sem Exam (ESE)\nMarks (i.e. out of 100 marks) and then to respective grades, hence ‘3’ credits will be transferred\nfor each 12-week course and considered as per study scheme of respective department. Grades\nobtained in NPTEL courses will be considered towards B.Tech. Programme, only if the course is\nsuccessfully qualified and obtained atleast 40% qualifying criteria as per College Examination\nrules. Moreover, there will be a provision of classroom teaching as per study scheme for the\nstudents, who wouldn’t be able to qualify through Swayam-NPTEL platform. Evaluation of\ncourses taught in classroom will be same as per existing method of assessment.\n6. Steps for enrolling and registering in NPTEL course are given below (An example is shown\nhere):\n(i) Go to the Course URL given in the list enclosed and click on ‘Join’.\n(ii) Update Profile i.e. Personal Details and Education Details. It is mandatory for student to select\nGNDEC as Swayam Local Chapter, fill college details as given below. Kindly note that\n‘University Roll Number’ is to be filled in section ‘College/School Roll No.’. Then, ‘Update\nProfile and Join Course’.\n(iii) Student will get an email confirming the course enrolment. Afterwards, he/she can start\nattending the course week wise. Student will have to fulfill the eligibility and qualification\ncriteria as per NPTEL course guidelines from time to time.\n(iv) As per timeline notified by NPTEL, student has to do registration for enrolled course for\nappearing in the exam; ‘Click to register for Certification Exam’.\n(v) On ‘Exam Dashboard’, Go to ‘Personal Info’, fill the required information.\n(vi) Fill ‘Student Specific Details’ i.e. College Name, Degree, Department, Year of Study,\nAPAAR/ABC ID etc. Student has to tick ‘Yes’, when asked about sharing scores with\ncollege.\n(vii) ‘Add Course’ for payment; select ‘Exam Date’ and ‘Exam Cities’. Further ‘Confirm and Pay’.\nPay Applicable Exam Fee.\nNote: If student does not share information with GNDEC Swayam-NPTEL Local Chapter at any\nstep while enrolling or registering for the course, then the course shall not be considered by\nthe college.\n7. Student must keep visiting NPTEL official website https://onlinecourses.nptel.ac.in/ for updated\ninformation.\n8. Kindly note that the aforementioned steps may be subject to change based on NPTEL’s specific\nprocedures. So, the student must register carefully.\nEncl: List of Open Electives offered through Swayam-NPTEL platform for B.Tech. 5th Semester of Batch\n2024-28 under Scheme Code-2024 for Session July-Dec, 2026.\nSd/-\nAR (Academics)\nCc: (i) Principal- for information, please, (ii) All HoDs (UG Engineering), (iii) Dean Academics- for information,\nplease. (iv) SPOC-Swayam NPTEL Local Chapter, (v) Mr. Ajay Verma- for uploading on Notice Board,\n(vi) Dealing Hand- Ms. Satwinder Kaur\nGURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\nList of Open Electives offered through Swayam-NPTEL Platform for B.Tech. 5th Semester of Batch 2024-28 (Scheme Code-20240 for July-Dec, 2026\nS. Course Course Name Institute Course URL Offering Applicable Course Course\nNo. Id Dept. UG Engg. Start Date Enrolment\nPrograms Last Date*\n1 noc26- Sustainable Groundwater IIT Madras https://onlinecourses.nptel.ac.in/e- CE CSE, EE, 20-Jul-26 27-Jul-26\nce121 Management learning/preview/noc26_ce121 ECE, IT, ME\n2 noc26- Fire Protection, Services and IIT Delhi https://onlinecourses.nptel.ac.in/e- CE CSE, EE, 20-Jul-26 27-Jul-26\nce161 Maintenance Management learning/preview/noc26_ce161 ECE, IT, ME\nof Building\n3 noc26- Sustainable Materials and IIT Delhi https://onlinecourses.nptel.ac.in/e- CE CSE, EE, 20-Jul-26 27-Jul-26\nce162 Green Buildings learning/preview/noc26_ce162 ECE, IT, ME\n4 noc26- Fundamentals of IIT Roorkee https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, 20-Jul-26 27-Jul-26\nme151 Manufacturing Processes learning/preview/noc26_me151 ECE, IT\n5 noc26- Work System Design IIT Roorkee https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, 20-Jul-26 27-Jul-26\nme149 learning/preview/noc26_me149 ECE, IT\n6 noc26- Introduction to Composites IIT Kanpur https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, 20-Jul-26 27-Jul-26\nme156 learning/preview/noc26_me156 ECE, IT\n7 noc26- Introduction to Application IIT Roorkee https://onlinecourses.nptel.ac.in/e- ME CE, EE, ECE, 20-Jul-26 27-Jul-26\ncs183 of Artificial Intelligence to learning/preview/noc26_cs183 IT\nRobotics\n8 noc26- Industrial Engineering and IIT Guwahati https://onlinecourses.nptel.ac.in/e- ME CE, CSE, EE, 20-Jul-26 27-Jul-26\nme193 Operations Research learning/preview/noc26_me193 ECE, IT\n9 noc26- Matrix Theory and IIT Hyderabad https://onlinecourses.nptel.ac.in/e- EE CE, CSE, 20-Jul-26 27-Jul-26\nee99 Applications learning/preview/noc26_ee99 ECE, IT, ME\n10 noc26- Hydrogen Energy: IIT Roorkee https://onlinecourses.nptel.ac.in/e- EE CE, CSE, 20-Jul-26 27-Jul-26\nge80 Technology and Economics learning/preview/noc26_ge80 ECE, IT, ME\n11 noc26- Economic Operations and IIT Kanpur, https://onlinecourses.nptel.ac.in/e- EE CE, CSE, 20-Jul-26 27-Jul-26\nee158 Control of Power Systems MNIT Jaipur learning/preview/noc26_ee158 ECE, IT, ME\n12 noc26- Programming in Java IIT Kharagpur https://onlinecourses.nptel.ac.in/e- CSE CE, EE, 20-Jul-26 27-Jul-26\ncs153 learning/preview/noc26_cs153 ECE, ME\n13 noc26- Introduction to Internet of IIT Kharagpur https://onlinecourses.nptel.ac.in/e- CSE CE, EE, ME 20-Jul-26 27-Jul-26\ncs161 Things learning/preview/noc26_cs161\n14 noc26- Introduction to Industry 4.0 IIT Kharagpur https://onlinecourses.nptel.ac.in/e- CSE CE, EE, 20-Jul-26 27-Jul-26\ncs160 and Industrial Internet of learning/preview/noc26_cs160 ECE, ME\nThings\n15 noc26- Foundations of Machine IIT Hyderabad https://onlinecourses.nptel.ac.in/e- CSE CE, EE, ME 20-Jul-26 27-Jul-26\ncs102 Learning learning/preview/noc26_cs102\n16 noc26- Cloud Computing IIT Kharagpur https://onlinecourses.nptel.ac.in/e- CSE CE, EE, 20-Jul-26 27-Jul-26\ncs150 learning/preview/noc26_cs150 ECE, ME\n17 noc26- Analog Electronic Circuit IIT Delhi https://onlinecourses.nptel.ac.in/e- ECE CE, CSE, IT, 20-Jul-26 27-Jul-26\nee135 learning/preview/noc26_ee135 ME\n18 noc26- Digital Image Processing IIT Kharagpur https://onlinecourses.nptel.ac.in/e- ECE CE, EE, ME 20-Jul-26 27-Jul-26\nee178 learning/preview/noc26_ee178\n19 noc26- Microwave Engineering IIT Guwahati https://onlinecourses.nptel.ac.in/e- ECE CE, CSE, EE, 20-Jul-26 27-Jul-26\nee190 learning/preview/noc26_ee190 IT, ME\n20 noc26- Software Testing IIIT https://onlinecourses.nptel.ac.in/e- IT CE, EE, 20-Jul-26 27-Jul-26\ncs131 Bangalore learning/preview/noc26_cs131 ECE, ME\n* Visit NPTEL official website for updated Information: https://onlinecourses.nptel.ac.in/",
+    "extraction_status": "extracted",
+    "content_hash": "b510ad006c7f79edc03693fbeeaa91b2d1fcd1987d4e81308075a4792aee740d",
     "metadata": {
       "date": "July 17, 2026",
       "category": null,
-      "department": null,
+      "department": "Id Dept",
       "semester": "july-dec",
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "deadline": "6th Sem",
+      "deadline_source_sentence": "(i) For Open Elective-I, consent will be taken before the start of 6th Sem for NPTEL courses",
+      "required_action": "student should submit a self-attested copy of final"
     },
     "review_flags": [
       "missing_category"
@@ -493,11 +508,12 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/struck-off-notice-42-070726",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "The official notice is:\nStruck_off_Notice_42_07.07.26\n.\nThis notification was issued on\nJuly 7, 2026\n.\nIt has been published by the\nadministrator\n.\nPlease refer to the ERP noticeboard for its context.",
-    "extraction_status": "text_available",
-    "content_hash": "431cf7b9375264f446d02851b59e77bd64bd5070971ea087a93ced8c7510731f",
+    "pdf_url": "https://erp.gndec.ac.in/files/Struck_off_Notice_42_07.07.26.pdf",
+    "text": "GURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\n(Academic Section)\nE-Notice No.: AS/31/43 Date: 07-07-2026\nStruck-off Notice\nThe name of the below mentioned student(s) are being struck-off from college rolls. The details are as under:-\nSr. Program College Roll University Student Name Father Name Semester Remarks\nNo. No. Roll No.\n1 BCA(Bachelor of 2491093 2436025 Prianshu Kumari Raju Tiwari 4 Name struck-off\nComputer Applications) ref. CA/10/391 dt.\n15.06.2026, Not\nattending classes.\n2 BCA(Bachelor of 2391055 2303435 Karandeep Singh Kamiker Singh 4 Name Struck-off\nComputer Applications) ref.CA/10/334\ndt.21/05/2026, not\nattending classes\nSd/-\nDeputy Registrar\nDistribution:\n1.Online College Notice Board\nE-Printed on: 07-07-2026 10:05:46\nPowered by TCPDF (www.tcpdf.org)",
+    "extraction_status": "extracted",
+    "content_hash": "3fb4d8fc662743b81101a590ab05207653bec88b8d58640915650f1c601094d4",
     "metadata": {
       "date": "July 7, 2026",
       "category": null,
@@ -530,18 +546,19 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/notice-of-open-elective-choice-filling-dates-extended-up-to-7726",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "Open Elective Choice Filling Dates Extended!\nThe new deadline is\nJuly 7, 2026\n.",
-    "extraction_status": "text_available",
-    "content_hash": "96d59f01b3578f962e89cf53086dc48c15e0d62606fa49764952b808d74b53a0",
+    "pdf_url": "https://erp.gndec.ac.in/files/Notice%20of%20%20choice%20filling%20dates%20extended%20up%20to%207.7.26.pdf",
+    "text": "GURU NANAK DEV ENGINBERING COLLEGE. LUDHIANA\n(Academic Section)\nJ 1{>L\n^stsv Dated: lr l\nAll HoDs ( U G-E ngi n eering)\nln continuation to letter no. AS/81/2675 dated 23.06.2026, the last date to fill open Elective Choices has\nbeen extended up to 07.07 .2026 up to 10:00AM.\no..,.,-,ffir,Academ\ni c s )\nCC to:-\nL \\v-2\nPrincipal for information\n2.\nAll HoDs",
+    "extraction_status": "extracted",
+    "content_hash": "ebfd78766a0a4362dddf71d0cd1d617bc58232fd4e8103a50fac1fd2f3b72ef8",
     "metadata": {
       "date": "July 6, 2026",
       "category": null,
       "department": null,
       "semester": null,
-      "deadline": null,
-      "deadline_source_sentence": null,
+      "deadline": "7.7.26",
+      "deadline_source_sentence": "Notice of Open Elective Choice Filling dates extended up to 7.7.26",
       "required_action": null
     },
     "review_flags": [
@@ -571,19 +588,19 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/six-months-progress-presentation-of-ms-gitanjali-sharda-phd-research-scholar",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "Six Months Progress Presentation\nof\nMs. Gitanjali Sharda\nPhD Research Scholar\n.\nTesting for hte next working of it this website",
+    "text": "The Six Months Progress Presentation of Ms. Gitanjali Sharda PhD Research Scholar, URN 2342529 of Computer Science Engineering Department will be held on 19th June,2026 (Friday) at 2:30 PM in CSE Department. Interested may attend the same.",
     "extraction_status": "text_available",
-    "content_hash": "fdbfb9755f1f918d0e5b8e96fe68c7fb92f50a7357740a627c0247ec94ba60f0",
+    "content_hash": "d9dec8d1f2e7c1a2068b6c07bd0f17f9c24c052c25be5631c52759aaba41321f",
     "metadata": {
       "date": "June 15, 2026",
       "category": null,
-      "department": null,
+      "department": "Computer Science Engineering Department",
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
-      "required_action": null
+      "required_action": "Interested may attend the same"
     },
     "review_flags": [
       "missing_category"
@@ -608,11 +625,11 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/merger-of-examination-centres-for-end-semester-examinations-may-2026",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "Merger of Examination Centres\nThis affects the\nEnd Semester Examinations\nfor\nMay 2026\n.\nPlease check the full notice for details.",
+    "text": "The\nCentre C1M stands merged into C2M w.e.f. 22.6.2026 and further C2M stands merged into C3M w. e. f. 25-06-2026\nfor End Semester Examinations May 2026. C3M will remain functional till the end of examination.\nC1E & C3E stand merged into C2E w.e.f. 25.6.2026\n. C2E will remain functional till the end of examination.",
     "extraction_status": "text_available",
-    "content_hash": "306e4f2936ebb14bdea7eab1f52ac98894496a77d7c44adc9526d5c79cde9fb7",
+    "content_hash": "ce2f449a54c607682788ad28b2c290c733d666b11f2c3781ce26957bdb18b75e",
     "metadata": {
       "date": "June 16, 2026",
       "category": null,
@@ -645,11 +662,11 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=2&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/the-provisional-result-of-b-tech-final-year-for-ese-may-2026",
-      "fetched_at": "2026-10-27T05:32:26.322931+00:00"
+      "fetched_at": "2026-10-27T05:38:18.123025+00:00"
     },
-    "text": "The\nprovisional result\nof\nB. Tech. Final year\nfor\nESE May-2026\n.",
+    "text": "The provisional result of B. Tech. Final year for ESE May-2026 has been declared.\nThe students can see the results at:\nFor Onroll Student:\nhttps://academics.gndec.ac.in/\nController of Examinations",
     "extraction_status": "text_available",
-    "content_hash": "ed0f268c5bc1c0c1572bbca4763ea293a12b46646a3c63b8d280d10d6b7b0f22",
+    "content_hash": "2b20c68b86ac3d870c61f5d057a971c4b28ef0342b483163eac262622ea35f03",
     "metadata": {
       "date": "June 20, 2026",
       "category": null,
@@ -682,19 +699,20 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=3&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/oe-ii-choice-filling-notice-with-syllabus-for-session-jan-june-2026",
-      "fetched_at": "2026-10-27T05:32:26.558194+00:00"
+      "fetched_at": "2026-10-27T05:38:18.379422+00:00"
     },
-    "text": "OE-II Choice Filling Notice\nis published.\nDetails regarding the\nSyllabus\nare included.\nThis notice is for the upcoming\nSession\n.\nSpecifically,\nJan-June 2026\n.",
-    "extraction_status": "text_available",
-    "content_hash": "b1778698e3018385a9a172ff460045ff97bf187660c53563e0148b9cb9d292dc",
+    "pdf_url": "https://erp.gndec.ac.in/files/OE-II%20Choice%20Filling%20Notice%20with%20Syllabus%20for%20Session%20Jan-%20June%202026.pdf",
+    "text": "GURU NANA DEV ENGINEERING COLLE E. LUDHIANA\n(Academic Section)\n267 5 23 l'rltoL6\nAS/81/ Dated:\nCircular\nAll HoDs (UG-Engineering)\nStudcnts of llc-Flngineering are lcquired to ljll and lock choices in thc order of plef'erence ('l ' beiirg lhc bcst choice) of Open\nl-lcctivc-ll course fbr 7'r'semcstcr lbr Acadenric session.lulv-Dec,2026 as nrcntioned bclorv. option \"Fill open Elective-ll\nChoice\" is avaifable undcr \"Examination Panel\" Tab at ,rq) s://ocodcntics.gndec,uc. in\n_\nThe details ofOpen Elective -Il (for 7'h Semester) Courscs are as under:\nSr. Course Pa per Course Title Applicable UG Offering Ilernarks\nNo. Code ID Programs Deptt.\ni. oECE- t05 1'7 34'7 Environmental CSE, EE, ECE, IT,\nlmpact Assessment ME\n) oEtT- t04 17885 Artifi cial lntelligence CE, ECE, ME IT\noECS-ll4 176t4 Cloud Computing-ll CE, EE. ECE. ME CSE To be offered through AWS\n(Amazon Web\nServices)\nAcademy.\n,1 oEEC-l I I 17781 e- Waste Recycling CE. EE. ME. CSE.IT ECE\nand Management\n5 OEME. 1'.7 693 Entrepreneurship CE, CSE, EE,ECE. M&PE In collaboration with\n112 Practices IT Wadhwani Foundation\nunder\nNational\nEntrepreneurship Network\n\"\n(NEN) Initiative.\n6 oEEE-106 t7'782 Energy Efficient CE, ECE, ME, EE\nMachines CSE, IT\n**This course will enable a student to build final pitch deck by the end of course. The students will develop business\nsense as they build on their idea to MVP to Business Planning\nSvllnbi of ubove ed oDe electives orc avaiktble o,, Nolice Boutd.\nIt is mandatory for the students to fill three choices for Open Elective-ll priority-wise and lock it by 02.07.2026 up to\n3:00PM. In case a student does not perform this activity in time, then Acadernic Section will do the allotment without\nconsidering student choices.\nPortal for open Elective choice lilling will be operational from 24.06.2026 (10:00AM) to 02.07.2026 (till3:00pM).\n!.Qls;\nl.\nCloud Computing-ll course rvill be offered onlv to those studeflrs who have studied Cloud Computing I in 6'h\nSemester as Open Elective-1.\n2.\nAfter submitting the filled choices, students will not be able to change it.\n3.\nopen Elective-ll will be offered only ifsrength ofstudents is nrore than or equal to 30 for that particular course.\n6t*.-*lrvw\nA(sJ!is/r,ar-y't Retistrar (Academ ics )\nCC\nl.\nPrincipal- for information\n2.\nDean Academics- for infonnation\n3. All-HoDs (UG Engineering) - to inform concemed students so that choice filling can be done on time\n4.\nOffice copy\nSubject Code: OECE-105\nSubject Name: Environmental Impact Assessment\nProgramme: B.Tech. (Civil Engineering) L:3T:0P:0\nSemester: 7/8 Hours: 36 Hours\nTh Credits:\nInternal Marks: 40 Percen of Num Problems:20%\nExternal Marks: 60 Duration of End Semester Exam SE : 3 Hours\nTotal Marks: 100 Course Category: Open Elective\nAdditional Material Allowed in ESE: NIL\nOn Com of the cours the student will have the to:\nco#\nCourse Outcomes\nI different related to EIA\n2. Understand the ons related to scale ects.\nJ I the the ect to assess the feasibi ofa ect\n4 Anal the ofa in terms of environment.\n5 the suitable measures and will be able to ate a for EIA.\n6 Create a lan for environmental act ofa devel tproject.\nDetailed Contents:\nPart-A\nIntroduction to EIA: Historical development of Environmental Impact Assessmenr (EIA). EIA in\nProject Cycle. Legal and Regulatory aspects in India. - Types and limitations of EIA - Cross\nsectorial issues and terms of reference in EIA - Public Participation in EIA. EIA Process screening\nmitigation\n-scoping- setting - analysis - (6 Hrs)\nComponents and methods for EIA: Matrices - Networks - Checklists - Connections and\ncombinations of processes - Cost benefit analysis - Analysis of alternatives\" (ti Hrs)\nPart-B\nSocio-economic impact Assessment: Definition, Social impact Assessment model and the\nplanning process. Rationale and measurement for SIA variables, Relationship between social\nimpacts and change in Community and Institutional arrangements. Individual and family level\nimpacts. Communities in transition - neighbourhood and Community impacts. Selecting,\ntesting and understanding significant social impacts. Mitigation and enhancement in social\nProjects.\nassessment. Environmental costing of (12 Hrs)\n*\nEnvironmental Management Plan - preparation, implementation, and review Mitigation and\nRehabilitation Plans - Policy and guidelines for planning and monitoring programs - Post Project\naudit - Ethical and Quality aspects of Environmental Impact Assessment (6 Hrs)\nEnvironmental Protection Act: The EPA, The Water Act, The Air Act, Case Studies, and\npreparation of environmental impact assessment statement for various industries. (4 Hrs)\nTEXT OOKS:\n1. canter, L.w., Environmental ImpactAssessment, McGraw Hilt, New York.l996\n2.\nEnvironmental Impact Assessment, Barthwal, R. R. New Age\nr & HeaC 't\nL\nCivil Engg. .:\nPAGE .....1. OF Guru Nanak Dev Engg.College\nLudhiana.\nREFERENCE BOOKS:\nl. Lawrence, D.P., Environmental Impact Assessment - Practical solutions to current\nproblems, Wiley-lnterscience, New Jersey, 2003.\n2. World Bank -Source book on EIA\n3. Petts, J., Handbook of Environmental Impact Assessment, Vol., I and II, Blackwell Sci-\nence, London,l999.\n& Head\nCivilEngg. Ocptt.\nGuru.Nanak Dev Engrg. Collcge\nLudhiana.\n.\n,\n1 /._\nGuru Nanak Dev Engineering College, Ludhiana\nDepartment of lnformation Technology\nB. Tech I nformation Technology Scheme 2018\nSubject Code: OEIT-104\nSub ect Name: Artificial lntell\nProgramme. B.Tech L:3T: 0P.0\nSemester: 7 T ing Hou rs: 36 Hours\nThm rylP ractica l: Theory C red its: 3\nInterna I l\\,4arks.4O Percen of Numerica l/Desi n Problems: 307\"\nExternal Marks: 60 Duration of End Semester Exam ESE 3hours\nTotal Marks: 100 Elective Status: open E lective\nOn Co letion of the cou rse, thestudentwill have the abilit to\nco#\nCou rse O utcomes\n1 U nderstand the of Arti lcta lntelligence, Agents, their and structu re\n2. Apply and analyze search strategies to solve the infornBd and uninforned problens\nDesign and evaluate intelligent expert nndels for perception and prediction from intelligent\nenviTonnEnt.\nFornu late valid so lutions for problens involving uncertain inputs or outmrrEs by using\ndecision nnki techn ues.\nDernonstrate and enrich knowledge to select and apply Al too ls to synthesize infornntion and\n5.\ndeve npdels within constraints of lication area\n6 Examine t tssues tnvo tn ledge bases, reason ing systerrs a p nning\nPrerequisites: Knowledge of problem so lving using different algorithms and basic programming\nAdditional Material Allowed in ESE: NIL\nDetailed Contents.\nPart -A\nlntroduction:\nlntelligence, Foundations of aftificial intelligence (Al). H istory of Al, Agents and Environrnents,\nRationality of Agents, Nature and Structure of Agents, Comnunication anpng Agents. [3 L]\nProblem Formulation and solution:\nStrte space search, control strategies, heuristic search, problem characteristics, production\nsystern characteristics., Gernrate and test, Hill climbing, best first search, A* search, AO*\nse6rch, Constraint satisfaction problem, Agenda Driven Search, Mean-end arnlysis, MinMax\nSearch, Alpha-Beta Pruning, lterative Deepening. [7 L]\nGame playing:\nPerfect lnfornation garne, lmperfect lnfornntion g@rne, Evaluation function, Minimax\nalgorithm, Alpha-beta pruning. [3 L]\nLogical Reasoning:\nlnference in Propositional logic and First order Predicate logic, Resolution, Logical r€soning,\nForward chaining, Backward chaining [3 L]\nPA RT-B\nBuru nThchnolog;\nNanak Da Eggco\nrtlDf,,4I\nNA egf,l\n'l\"iz 't L\nGuru Nanak Dev Engineering College, Ludhiana\nDepa rtment of lnformation Technology\nB. Tech I nformation Technology) Scheme 201 8\nKnowledge representation\n:\nMapping between facts and representatiors, Approaches to knowledge representation, procedural\nvs declarative know ledge, Forward vs. Backward reasoning, Matching, conflict resolution, Weak\nand Strong filler structures, senEntic nets, frarne, cor@tual dependency, scripts. [7f]\nPlanning and Lea rning Agents:\nlntelligent Agents, Nature and structure of Agents, Learning Agents, lntroduction to different\nForms of Learning, The Planning problern, planning with state space search, partial order\nplanning, planning graph, planning with propositional logic, Analysis of planning approaches,\nHierarchical planning, mnditional planning, Continuous and Muhi Agent planning.[9Ll\nlnductive learning:\nDecision trees, Rule based learning, Current-best-hypothesis search, Least mrrrnitrnent search,\nNzural networks, Reinforcenent learning, Genetic algorithnE. [5L]\nText Books:\n1.\nStuart Russelland Peter Norvig, \"Arrificiai lntelligence: A Modern Appr.oach\". Prentice\nHall. 2010\n2. Saroj Kaushik, \"Arrificial Intclliscncc\", Cengage Learning lndia,20'l'l\nReference Books:\n1.\nElaine Rich and Kevin Knight, \"Artificial lnrelligcncc\". Tata McGraw Hill. 2010\n2. Trivedi, I\\4.C., \"A Classical Approach to Artifical Intellise ncc\". Khanrn Publishinq House,\nDelhi.2018\n3.\nDavid Poole and Alan Mackworth, \"Artrficial lntelligence: Foundations for Compulational\nAgcnts\". Cambr:idgc U niver sity.20 l0\nE-Books and Online Learning Material\n1 . HandBook of Artificial I ntelligence Edited by Avron Barr and Edward A. Feigenbaum,\nConputer Science DepartnEnt Stanfo rd U n i versity. -\nhttps//shcksstanford.eduff i le/dru id:onl 60crc30ryqn1 60ck3308.pdf\nOnline Courses and Video Lectu res\n1 ficia l\"zo (Accessed on lrrlay\n20,2020)\n2.\nhttps://notel.ac. in/mursedl 06fl 05/10610507/ (Accessed on May 2O,2O20)\n3.\nhttps://nstel.ac. ir/mursev] 06/1 02/1061m220/ (Accessed on May 20,2020)\n4.\nhttps:/ (Accessed on May 20, 2020)\n5. ^/ww.youtube.cony'watch?v=bv4t4r3scul\nhttps://www.voutube.mny'watch?v= iFltO CEX LX Y (Accessed on May 20,2020)\nIH\nEngg College\nt\nW\nScheme and Syllabus of B,Tech. (2018 batch onwards)\nDepartment of Computer Science and Engineering\nSubject Code : OECS-ll4\nSubject Name: Cloud Cornputing-ll\nProgramme: B.Tech (CSE) L:3 T:0 P:0\nth\nSemester:7 Teaching Hours: 36\nTheory / Practical: Theory Credits:3\nI nternal Marks: 40 Percentage of Numerical/Design/Programmin g\nProblems: l0%\nExternal Marks: 60 Duration of End Semester Exam (ESE) : 3 hrs\nTotal Marks: 100 Elective Status : Open Elective\nAdditional Material Allowed in ESE: INIL]\nOn Completion of the course, th€ student will have the ability to:\nco#\nCourse Outcomes (CO)\nI pp v Shared SeCUnty mode on maZon eb Se CeS S C oud\nm emen arion\nApply automatic scaling in AWS cloud environments\n3 Host a static or dynamic website and use Lambda scn,ice on AWS cloLrd.\n4 Use Artificiat intelligence and Machine leaming services on AWS cloud\n5 Make use of Intemet of Things and Big Data products on AWS cloud.\n6 Implement Blockchain technology using AWS cloud\nDetailed Contents:\nPart-A\nAmazon Web Services (AWS) Shared Security Model: Introduction to AS/S security\nmodel for cloud services, Identity and access managemenr (rAM). principre ol reast privireuc\n(PoLP), Denial of service (DoS), Distributed denial of service (DDoS). watering hole arrrck,\nMulti-factor authentication (MFA), Amazon inspector, AWS trusted advisor, Amazon simple\nstorage service (Amazon S3), Amazon erastic brock store (Amazon EBS), Amazon relational\ndatabase service (Arnazon RDS)\nt06l\ncloud Services, Instance States and Auto Scaling in cloud Environments: cloud service\nmodels: Infrastructure as a Sewice (IaaS), platform as a Service (paaS), and Software as a\nHead\nt85\n's.itmmft#Jrpn'\noF \"''3\nPAGE...1...\"\ni\nt\nScheme and Syllabus of B.Tech. (201g batch onwards)\nDepartment of Computer Science and Engineering\nServicc (SaaS) Atnazon elastic compute cloud (AmazonEC2),EC2 instance states, AWS\ninstance lif'ecycle, Instance store volumes, Amazon machine image (AMI), Ipv4 address and\nIPv6 address, Elastic IP address, Automatic scaling in cloud environments, Auto scaling\ngroups. Fleet, Launch template, Scale-out and Scale-in. hoursl\nDvnamic web Servers, Lambda and CloudFormation: Static website, Dynamic website,\nAmazon C'loLrdFront, Content delivery network (CDN), Edge location, Origin, Distribr.rtion,\nTime to live (TTL)' AWS Lambda, CloudFormation template, Infrastructure as code (IaC)\n[5 hoursl\nPart-B\nArtificial Intelligence (AI) and Machine Learning (ML): Inrroduction to AI and ML,\nAWS Deeplens. Al services from AWS platform: Amazon Comprehend, Amazon Forecast,\nAtnazon l.ex, Anlazort Personalize, Amazon Polly, Amazon Rekognition, Amazon Textract,\nAmazon Translate, Amazon Transcribe. Impact of AI, Deep learning, Reinforcement\nlcarning, Strpcrvised learning, Unsupervisecl learning, Forecasting, Neural network, AWS\napplications.\nmachinc learning\ntg hoursl\nlnternrt ol'Things (IoT) and Big Data: Introducrion to IoT and Big <jata, AWS IoT\nservices, Apache Hadoop, Big data processing cycle, Data analyics, AWS Big\ndata\nservices\napplications and\nhoursl\nBlockchain and Cryptocurrency: Introduction to blockchain technology, Cryptocurrency,\nCryptocurrency mining, Decentralized database, Hash, Immutable transactions. Smart\ncontract. AWS blockchain products.\n[4 hoursl\nText Books:\nI\nRaj Kumar Buyya..James Broberg, Andrezei Goscinski, \"Cloud Computing: principles\nand Paradigms\", First edition, John Wiley & Sons Inc.\n2. Barrie Sosinsky. \"Cloud computing Bible\", First edition, wiley India pvt. Ltd.\nReference Books:\nI\nJohn Rittinghouse, James F.Ransome, \"Cloud Cornputing: Implementation, Management,\nand Security\", lnternational edition, cRC press Taylor and Francis Group.\n2.\nJudith Hurwitz, Robin Bloor, Marcia Kaufman, Fern Halper,\" cloud computing for\nDrrmmies\", International edition, John Wiley & Sons Inc.\nBooks and onlinc lcarning Material:\n( -\"?t-\n**),ffi\"m*-\"qt*'tn'\nr85\nScheme and Syllabus of B.Tech. (201g batch onrvards)\nt\nDepartment of Computer Science and Engineering\nI\nBest Practices for Security, Identity, &\nCompliance ,': il\\\\'S crrnr archi re sceuItl\\ -;,jr.1:trr'. ,.,,\n,\nAccessed on Julv I ltt. 202:\nShare an Amazon EBS\n_lrrk'!!-*:rLritide_-_.:l:r-turrt,l r l :, t rg:\nlrrapsltot-pcrnrissiuns.hlrrrl\n,\\teesscti err .r rrlr -l t''. ltr-lj\nJ Sharing a DB\nSna s :r'i(k rc s. atr.s. rultazot.l.cotrt A rlazon I{ D S, I alcsli [Jscr( irrirlc,I Sl [i * ,Sihinarri\\.n r'r\nllJltJi..:117]tl Accessed on July 2l\nBucket Policies and User\nl)olicrcs: littps. tiocs.aws.alltirlon cotrr;.4rrltzilnS-i lliLisl i.rscr rltlltlc u*tn!.lr;,r\n5 A Do W lic S ie T s r . u h s tm te l d AdvisorforEvefyOne: l-tilp;. ii\\!\\.ljririr.,r!it \\i, A i1 cc l e ) s i( s ) e r d ,\\ . o : n i . J \\ u ,, ly , 2 , I t', i 2 , 0 ,1 2 , 2.\n6 ; t rn -<t.r lc-ltas ic \\cccssctl on.lrrl '1t\nUnderstand the Instance Store and\nllllS_.http1- ir\\.\\s.il'r-i.!1(l_rli!:(l!!rI1g]lll-!!l_rllq[Bll.1 I<rr.ir le rlg,-. \\ \\.rti.r 1, ] ,l\nAccessed or: July zItt,2O2z.\n7 Leam About Elastic IP Addresses: hfips:.rar.r's.amazon.e ()rrr 1'lre rn iu rrrstrl'rport.k r.r, r,.r icd Lr -\nccnleli'intro-cla stic-ip-atlt.lrcsscs\nAccessed on Julv 2 it'. 2rt2l\n8 h t tfrs., i: r,r s. lul_rlzg!. cg!rc!23g19$dlgg Accessed on July )l'',2022\n9 l0 E A x W p S lo r L e a A m W bd S a A F I A s Q e s rv h i r c r es ji.lW AZ()t'j .ur)1 r i l h . r il i i r . . l 'la l$il,lulS on Jul1, : ltt, 202:\nAccessed on July21tt, 2022\nll AI with AWS Machine Learning h ttps : irarv s. a rn azo n. co rn,, l i,' Accessed on luly zlst,2022.\nt2 htlps:, ar,i,s.a Lnuzort.cunr i iotl Accessed on July 21\"',2022\nl3 https :,','itrvs.arnazon.cotniblo ssrbig-datai Accessed on July 21\"',2022\nt4 Blockchain on AWS hltps. iru s arnrrzrrli e rrr:t. i-rli,ckultu rn Accessed on July 2l'',2022.\nOnline Courses and Video Lectures\nI h il'outu.[re, bSR'f,\\I{ l) s.i tl Accesse<J on Jr-rly ?ltt,z02Z\n2 cott: trvatch ?r,=PirlcBtr'lIcu, Accessed on July 2t\"' ,2022\n3 (Demo) video\nlr lul.ube. c:o miu.utch'.) r,* KltPitc loY Accessed on Jull .2lo',2022\nvideo\ni Accessed on July 11\",2022\nBig Data on Amazon Web Services\nhtrn S ir'r lv1''1' . t-(r,ltf tbe.Ctrnrlwatch?v:3 Nl0ti'CU&l ure -rotttr.i.llt'\nAccessed on July 21st,2022\n6 Introduction to Blockchain on AWS\"\nllti::._-:@r\\,lzl,l.f1r.li]'accessedonJuly2lst,2022.\n7 What is Blockchain on AWS?\" httt:s: ,rvrvn.-vuutube .ront rr:r1,1L]t\n-,):ilrlrj.r1t.l\\.!.r\nAccessed on July 2|st,2022.\nHead\n*o.*'l**cr*nt** *,\nPAGE .\"3..\n0F...\"3_\nL.\nCURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\nSubject Code: : OEEE- I 06\nSubject Name: Energlt Efficient Machines\nProgramme: B.Tech. L:3 T: I P:0\nSemester:6\nTeaching Hours: 36L\nTheory/Practical: Theor-v Credits:3\nInternal Marks: 40 Percentage of Numerical/Design Problenrs:300,,0\nExternal Marks: 60 Duration o f End Semester Exanl(ESE) hours\nTotal Marks:\n100 Elective Status: Open Elective\nPrerequisit€s: Induction Motor Basics\nAdditional Material Allowed in ESE: Scientific Calculator\nOn Completion ofthe course, the student will have the ability to:\nco#\nCourse Outcomes\nI Understand thc n1portance o f en rEy lllanagemen and aud\n2 pp v energy COnservation m asure S IN ndustI al andagnculture Sector\n3 Understand the design modifications in energy efficient motor as compared to\nstandard motor\n4 Understand the powcr faCtor Correc on o I non INCAI oads\n5 E aluate lrtotorefli clrcyand sc ect on o f dri\\.C fbf nd US trra USc\n6 Apply a computalional tool to analyze the payback period of energy efficient\nlltotols\nD€tailed Contents:\nPART-A\nEnergy Management and Audit\n(6L)\nlntroduction to Energy Management, Encrgy Audit and its Need, Types of Encrgy Audit, Energy\nconsen'/ation in context with induction motoiioads in Industrial and Agricultural Scclor, a\"\".gy a.,ait\nlnstruments.\nReactive Power Management in El€ctrical Systems\n(EL)\nElect'city Billing, Electrical Load Managernent and Maximum Dernand control, low power factor\nissues with standard induction motor Methods ofPower Factor Lnprovement, Selection and Location\nof Capacitors. Perfonnance. Assessment of Power Factor Corection Capacitors, power Factor with\nNon-Linear Loads, Hannonics distortion factor and power quality.\nAdjustable Speed Drives\n(4L)\nIntroduction to AC drives, AC drive classification. variable Frequency Drives, drives ill industrial\nautomation. AC drive evaluation and selection.\nPage L27 ofnl43\nnffi\nnssistanr (Acadenicsr t-r.o.D.\npaar..1..T.. )Lc.-xA- Guru ilanaklOev Engg. College, Dep\"t. C tr;Ca'Fn^i-6\nor tudirnr.l4l006 G.N.D. E\nGURU NANAK DEV ENGINEERING COLLEGE, LUDHIANA\nPART-B\nEnergy Efficient Motors\n(l0L)\nDifference between Standard Motors and Energy Efficient Motors. NEMA Design A, B, C, D. Wound\nRotor, Multi spced Motors. Motor Efficicncy Determination Methods: Direct Measurement Mcthod,\nLoss Segregation Method, Moror Efficiency Labering, Factors for selection of E,ergy Efficient\nMotors, Over-Motoring. Eddy Cun.ent.\nEconomics of Energy Efficient Motors and Systems (8L)\nMotor Life cyclc cost, Direct Saving and payback Alarysis, presellt worth Mcthod with co.stant\nPower Costs and lncreasing over costs. Introduction to software like MATLAB/ANSyS fbr various\ncomputations related to energy efficient machincs and energy audit_\nText Books:\nI\nJ. C. Andreas, Energy Et'ficient Electric Motors, Marcel Dekker Inc. 1992\n2 T Albert' Introduction to Eficient Erectric System Design, The Fairmount press prentice Halr.\nS.c. Triparhi. Eiecric Energy Utilization and conservation\" .r-ata Mc-Graw Hill 1991.\n4 B. Charles. Handbook of Modem Electronics and Electdcal Engineering. John Wiley &\nSons, 1986.\nE-Books and online learning material:\n- NEMA https://www.nema.ors. Accessed on Aug 4 2O2O\n. BEE web-link httos;//www.beeindia.eo Accessed on Aug 4 2O2O\ni-t.o.D.\n.; .- Fi^r..(\nDeptl' o:\nE; r:r '\nG.N.D.\nLudhiJla-1414\n!##,,iffi,Tffi]\n.#-.\nPAGE..V.6,.. oF",
+    "extraction_status": "extracted",
+    "content_hash": "136c1a53868497f037d4d3d48564183b80a260cd5398198811a95912433836a7",
     "metadata": {
       "date": "June 23, 2026",
       "category": null,
-      "department": null,
-      "semester": "Jan-June 2026",
-      "deadline": null,
-      "deadline_source_sentence": null,
-      "required_action": null
+      "department": "Ludhiana Department",
+      "semester": "0 Semester",
+      "deadline": "02.07.2026",
+      "deadline_source_sentence": "It is mandatory for the students to fill three choices for Open Elective-ll priority-wise and lock it by 02.07.2026 up to",
+      "required_action": "Apply and analyze search strategies to solve the infornBd and uninforned problens"
     },
     "review_flags": [
       "missing_category",
@@ -723,11 +741,11 @@
     "source": {
       "api_url": "https://infocascade-database.onrender.com/api/notices?page=3&pageSize=9&sort=latest",
       "official_notice_url": "https://erp.gndec.ac.in/noticeboard/the-provisional-result-of-bba-and-bca-final-year-regular-for-ese-may-2026",
-      "fetched_at": "2026-10-27T05:32:26.558194+00:00"
+      "fetched_at": "2026-10-27T05:38:18.379422+00:00"
     },
-    "text": "Provisional Result Declared!\nFor\nBBA and BCA\nprograms.\nApplies to\nFinal Year (Regular)\nstudents.\nThis is for\nESE May-2026\n.",
+    "text": "NO.COE/128/526 Dated: 02-07-2026\nThe provisional result of BBA and BCA Final year (Regular) for ESE May-2026 has been declared.\nThe students can see the results at:\nFor Onroll Student:\nhttps://academics.gndec.ac.in/\nController of Examinations",
     "extraction_status": "text_available",
-    "content_hash": "8bacd079792f16ff9e30ed695e5d60ba8b6aa69932911d59480b4ea52fe4276a",
+    "content_hash": "13d7edc3bb36df8e26dc5b6520f82ef81a6f65659cd61a786f6e24eed5f77d98",
     "metadata": {
       "date": "July 2, 2026",
       "category": null,
