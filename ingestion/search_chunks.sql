@@ -49,10 +49,10 @@ AS $$
         c.source_url::text,
         ts_rank_cd(
             c.search_vector,
-            websearch_to_tsquery('english', search_query)
+            websearch_to_tsquery('simple', search_query)
         )::double precision AS score
     FROM public.chunks AS c
-    WHERE c.search_vector @@ websearch_to_tsquery('english', search_query)
+    WHERE c.search_vector @@ websearch_to_tsquery('simple', search_query)
     ORDER BY score DESC, c.chunk_id
     LIMIT greatest(match_count, 0);
 $$;

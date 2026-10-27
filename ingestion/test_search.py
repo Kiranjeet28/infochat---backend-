@@ -92,7 +92,7 @@ def _fetch_chunks(
     response = session.get(
         f"{project_url}/rest/v1/chunks",
         params={
-            "select": "chunk_id,embedding,embedding_model",
+            "select": "chunk_id,title,published_at,source_url,embedding,embedding_model",
             "order": "chunk_id.asc",
             "limit": 1000,
         },
@@ -115,7 +115,14 @@ def _similarity_search(
         json={"query_embedding": query_vector, "match_count": TOP_K},
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
-    response.raise_for_status()
+    if response.status_code >= 400:
+        if "PGRST202" in response.text:
+            raise RuntimeError(
+                "PGRST202 from search_chunks_similarity; called with "
+                "query_embedding: extensions.vector(384), match_count: integer. "
+                f"Exact response: {response.status_code} {response.text}"
+            )
+        response.raise_for_status()
     return response.json()
 
 
@@ -131,7 +138,14 @@ def _keyword_search(
         json={"search_query": keyword, "match_count": TOP_K},
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
-    response.raise_for_status()
+    if response.status_code >= 400:
+        if "PGRST202" in response.text:
+            raise RuntimeError(
+                "PGRST202 from search_chunks_keyword; called with "
+                "search_query: text, match_count: integer. "
+                f"Exact response: {response.status_code} {response.text}"
+            )
+        response.raise_for_status()
     return response.json()
 
 
@@ -144,12 +158,14 @@ def _rank(rows: list[dict[str, Any]], title: str | None) -> int | None:
     return None
 
 
-def _print_results(label: str, rows: list[dict[str, Any]]) -> None:
+def _print_results(
+    label: str, rows: list[dict[str, Any]], score_label: str = "score"
+) -> None:
     print(f"  {label} top {TOP_K}:")
     for rank, row in enumerate(rows, start=1):
         print(
             f"    {rank}. {row.get('title')} | {row.get('published_at')} | "
-            f"{row.get('source_url')} | cosine_distance={row.get('score', 0.0):.6f}"
+            f"{row.get('source_url')} | {score_label}={row.get('score', 0.0):.6f}"
         )
     if not rows:
         print("    (no results)")
@@ -184,53 +200,37 @@ def run() -> None:
                     f"Expected {EMBEDDING_DIMENSIONS} query dimensions, got {len(query_vector)}"
                 )
 
-            similarity_rows: list[dict[str, Any]] = []
-            similarity_error: str | None = None
-            try:
-                similarity_rows = _similarity_search(
-                    session, project_url, headers, query_vector
-                )
-            except requests.RequestException as error:
-                detail = error.response.text[:500] if error.response is not None else str(error)
-                similarity_error = f"{type(error).__name__}: {detail}"
-
-            keyword_rows: list[dict[str, Any]] = []
-            keyword_error: str | None = None
-            try:
-                keyword_rows = _keyword_search(
-                    session, project_url, headers, test["keyword"]
-                )
-            except requests.RequestException as error:
-                detail = error.response.text[:500] if error.response is not None else str(error)
-                keyword_error = f"{type(error).__name__}: {detail}"
+            similarity_rows = _similarity_search(
+                session, project_url, headers, query_vector
+            )
+            keyword_rows = _keyword_search(
+                session, project_url, headers, test["keyword"]
+            )
 
             print(f"\nQuestion: {question}")
-            if similarity_error:
-                print(f"  Similarity search unavailable: {similarity_error}")
-            else:
-                _print_results("Similarity", similarity_rows)
-            if keyword_error:
-                print(f"  Keyword search unavailable: {keyword_error}")
-            else:
-                _print_results("Keyword", keyword_rows)
+            _print_results("Similarity (database pgvector)", similarity_rows, "cosine_distance")
+            _print_results("Keyword", keyword_rows, "ts_rank_cd")
 
             related_ranks = {
-                title: _rank(similarity_rows, title) if not similarity_error else None
+                title: {
+                    "similarity": _rank(similarity_rows, title),
+                    "keyword": _rank(keyword_rows, title),
+                }
                 for title in test.get("related", [])
             }
+            expected_row = next(
+                (row for row in similarity_rows if row.get("title") == test["expected"]),
+                None,
+            )
             summaries.append(
                 {
                     "question": question,
                     "expected": test["expected"] or "No matching notice",
-                    "similarity_rank": _rank(similarity_rows, test["expected"])
-                    if not similarity_error
-                    else None,
-                    "keyword_rank": _rank(keyword_rows, test["expected"])
-                    if not keyword_error
-                    else None,
+                    "similarity_rank": _rank(similarity_rows, test["expected"]),
+                    "keyword_rank": _rank(keyword_rows, test["expected"]),
+                    "expected_distance": expected_row.get("score") if expected_row else None,
+                    "similarity_rows": similarity_rows,
                     "related_ranks": related_ranks,
-                    "keyword_error": keyword_error,
-                    "similarity_error": similarity_error,
                 }
             )
 
@@ -239,16 +239,25 @@ def run() -> None:
     for item in summaries:
         print(
             f"{item['question']} | {item['expected']} | "
-            f"{_rank_label(item['similarity_rank']) if not item['similarity_error'] else 'unavailable'} | "
-            f"{_rank_label(item['keyword_rank']) if not item['keyword_error'] else 'unavailable'}"
+            f"{_rank_label(item['similarity_rank'])} | "
+            f"{_rank_label(item['keyword_rank'])}"
         )
-        for title, rank in item["related_ranks"].items():
-            label = _rank_label(rank) if not item["similarity_error"] else "unavailable"
-            print(f"  related: {title} | similarity rank {label}")
-        if item["keyword_error"]:
-            print(f"  keyword failure: {item['keyword_error']}")
-        if item["similarity_error"]:
-            print(f"  similarity failure: {item['similarity_error']}")
+        for title, ranks in item["related_ranks"].items():
+            print(
+                f"  related: {title} | similarity rank {_rank_label(ranks['similarity'])} | "
+                f"keyword rank {_rank_label(ranks['keyword'])}"
+            )
+
+    print("\nCosine distances:")
+    print("case | notice/result | cosine distance")
+    for item in summaries:
+        if item["expected"] == "No matching notice":
+            for rank, row in enumerate(item["similarity_rows"], start=1):
+                print(f"hostel top {rank} | {row.get('title')} | {row.get('score'):.6f}")
+        else:
+            distance = item["expected_distance"]
+            rendered = f"{distance:.6f}" if distance is not None else "not in top 5"
+            print(f"expected | {item['expected']} | {rendered}")
 
 
 if __name__ == "__main__":
