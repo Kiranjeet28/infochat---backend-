@@ -29,7 +29,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
@@ -296,7 +296,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
@@ -372,7 +372,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
@@ -526,7 +526,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
@@ -605,7 +605,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
@@ -642,7 +642,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
@@ -679,7 +679,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
@@ -758,7 +758,7 @@
     "review_flags": [
       "missing_category"
     ],
-    "review_status": "needs_review",
+    "review_status": "ok",
     "extraction_confidence": 0.94,
     "ingestion_status": "success",
     "supersedes_id": null,
