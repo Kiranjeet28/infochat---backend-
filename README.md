@@ -28,4 +28,7 @@ python ingestion/chunk_notices.py
 
 The chunker selects notices whose `superseded_by` is null and whose
 `review_status` is not `needs_review`. It uses 400-token chunks with a 50-token
-overlap and skips existing `(notice_id, chunk_index)` pairs when rerun.
+overlap and skips existing `(notice_id, chunk_index)` pairs when rerun. The
+selected embedding model is `sentence-transformers/all-MiniLM-L6-v2` (384
+dimensions); the chunker records that model on each chunk for the later embedding
+step.

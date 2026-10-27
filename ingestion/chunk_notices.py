@@ -14,6 +14,7 @@ BATCH_SIZE = 100
 REQUEST_TIMEOUT_SECONDS = 30
 CHUNK_SIZE_TOKENS = 400
 CHUNK_OVERLAP_TOKENS = 50
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 def _credentials() -> tuple[str, dict[str, str]]:
@@ -79,6 +80,7 @@ def chunk_notice(
             "notice_id": notice["notice_id"],
             "chunk_index": index,
             "text": chunk,
+            "embedding_model": EMBEDDING_MODEL,
             "title": notice.get("title"),
             "published_at": notice.get("published_at"),
             "source_url": notice.get("source_url"),
