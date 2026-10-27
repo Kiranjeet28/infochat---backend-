@@ -19,18 +19,16 @@
     "content_hash": "edb03ccf89fa0541ab2d9b441d82f199ae33abfbddf7f70d43ad1c96dac3fc5d",
     "metadata": {
       "date": "September 2, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": null,
       "semester": null,
       "deadline": "7.9.2026",
       "deadline_source_sentence": "1.Filling of Makeup Exam Forms 3.9.2026 to 7.9.2026 (up to 12 p.m.)",
       "required_action": "Filling of Makeup Exam Forms"
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -56,18 +54,16 @@
     "content_hash": "9d190e3629bae08ccbd9f90dd9b96e32b4f772cd80b4ee80f6a58cec3d6b257a",
     "metadata": {
       "date": "September 2, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": null,
       "semester": null,
       "deadline": "07-09-2026",
       "deadline_source_sentence": "Examination form filling process of Makeup Examination of End Semester Examinations May-2026 begins on 03-09-2026 and will remain continue upto 07-09-2026 till (12:00 pm)",
       "required_action": "Eligible students for makeup examination can fill the Examination Form from the website link"
     },
-    "review_flags": [
-      "missing_category"
-    ],
-    "review_status": "needs_review",
-    "extraction_confidence": 0.94,
+    "review_flags": [],
+    "review_status": "ok",
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -94,7 +90,7 @@
     "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "metadata": {
       "date": "September 2, 2026",
-      "category": null,
+      "category": "Academics",
       "department": null,
       "semester": "JULY-DEC, 2026",
       "deadline": null,
@@ -102,11 +98,10 @@
       "required_action": null
     },
     "review_flags": [
-      "missing_text",
-      "missing_category"
+      "missing_text"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.74,
+    "extraction_confidence": 0.8,
     "ingestion_status": "failed",
     "ingestion_failure_reason": "PDF has no extractable text; OCR is required.",
     "supersedes_id": null,
@@ -134,18 +129,16 @@
     "content_hash": "39211a7246c9a4b34ad9ea12f118f1bb4076a1893a5b205f7afaa3fcd5126bbb",
     "metadata": {
       "date": "August 25, 2026",
-      "category": null,
+      "category": "Admissions",
       "department": null,
       "semester": null,
       "deadline": "09-09-26",
       "deadline_source_sentence": "BBA/B.C0M./MBA, 26-08-26 to 09-09-26",
       "required_action": "students as per following schedule must submit all the above-mentioned documents: -"
     },
-    "review_flags": [
-      "missing_category"
-    ],
-    "review_status": "needs_review",
-    "extraction_confidence": 0.94,
+    "review_flags": [],
+    "review_status": "ok",
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -172,18 +165,16 @@
     "content_hash": "2da2bb2fd736088f1fffa40390e0ee2a9b3972dc1adb417916fd927cddf1e5f4",
     "metadata": {
       "date": "August 18, 2026",
-      "category": null,
+      "category": "Admissions",
       "department": null,
       "semester": null,
       "deadline": "28/08/2026",
       "deadline_source_sentence": "before 28/08/2026. (Black & White scanning is not allowd)",
       "required_action": "students admitted in session 2026-27 are directed to upload their all"
     },
-    "review_flags": [
-      "missing_category"
-    ],
-    "review_status": "needs_review",
-    "extraction_confidence": 0.94,
+    "review_flags": [],
+    "review_status": "ok",
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -210,7 +201,7 @@
     "content_hash": "99dc7c5bbb0e37a8ed96f09ae78c4d3b790c30df5db434d88583d1eeefb2a6fd",
     "metadata": {
       "date": "August 18, 2026",
-      "category": null,
+      "category": "Admissions",
       "department": null,
       "semester": null,
       "deadline": "21/08/2025",
@@ -218,11 +209,10 @@
       "required_action": "students admitted in session 2026-27 are directed to make their ID Cards"
     },
     "review_flags": [
-      "missing_category",
       "deadline_precedes_notice_date"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.79,
+    "extraction_confidence": 0.85,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -249,18 +239,16 @@
     "content_hash": "1bd41bb429d8c883cd4d7f90859ba77d7d7818cefa04de7d8baee1b7a5decbe4",
     "metadata": {
       "date": "August 4, 2026",
-      "category": null,
+      "category": "Student Affairs",
       "department": null,
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
     },
-    "review_flags": [
-      "missing_category"
-    ],
-    "review_status": "needs_review",
-    "extraction_confidence": 0.94,
+    "review_flags": [],
+    "review_status": "ok",
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -286,18 +274,16 @@
     "content_hash": "4b1b6d3797054f90cdd67c8b00fe19da03c2534ac2734e26ae36e01ad1bee817",
     "metadata": {
       "date": "July 28, 2026",
-      "category": null,
+      "category": "Academics",
       "department": "Computer Science and Engineering Department",
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": "Interested may attend the same"
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -323,7 +309,7 @@
     "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "metadata": {
       "date": "July 28, 2026",
-      "category": null,
+      "category": "Student Affairs",
       "department": null,
       "semester": null,
       "deadline": null,
@@ -331,11 +317,10 @@
       "required_action": null
     },
     "review_flags": [
-      "missing_text",
-      "missing_category"
+      "missing_text"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.74,
+    "extraction_confidence": 0.8,
     "ingestion_status": "failed",
     "ingestion_failure_reason": "Notice has no text and no direct PDF link.",
     "supersedes_id": null,
@@ -362,18 +347,16 @@
     "content_hash": "1fc723e7a28e0aba70cf4a42c7e7afca22a0af9b1d43613c9aa1b28cb4bea6eb",
     "metadata": {
       "date": "July 23, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": null,
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": "Students can view their results at the following portal:"
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -400,7 +383,7 @@
     "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "metadata": {
       "date": "July 23, 2026",
-      "category": null,
+      "category": "Academics",
       "department": null,
       "semester": "Odd Semester",
       "deadline": null,
@@ -408,11 +391,10 @@
       "required_action": null
     },
     "review_flags": [
-      "missing_text",
-      "missing_category"
+      "missing_text"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.74,
+    "extraction_confidence": 0.8,
     "ingestion_status": "failed",
     "ingestion_failure_reason": "PDF has no extractable text; OCR is required.",
     "supersedes_id": null,
@@ -440,18 +422,16 @@
     "content_hash": "751f6f11f6785ace30b2aad1d7097f5ba186a374d95b00b26e72804f402f2b0b",
     "metadata": {
       "date": "July 17, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": null,
       "semester": "july-dec",
       "deadline": "6th Sem",
       "deadline_source_sentence": "(i) For Open Elective-I, consent will be taken before the start of 6th Sem for NPTEL courses",
       "required_action": "student should submit a self-attested copy of final"
     },
-    "review_flags": [
-      "missing_category"
-    ],
-    "review_status": "needs_review",
-    "extraction_confidence": 0.94,
+    "review_flags": [],
+    "review_status": "ok",
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -478,18 +458,16 @@
     "content_hash": "b510ad006c7f79edc03693fbeeaa91b2d1fcd1987d4e81308075a4792aee740d",
     "metadata": {
       "date": "July 17, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": "Id Dept",
       "semester": "july-dec",
       "deadline": "6th Sem",
       "deadline_source_sentence": "(i) For Open Elective-I, consent will be taken before the start of 6th Sem for NPTEL courses",
       "required_action": "student should submit a self-attested copy of final"
     },
-    "review_flags": [
-      "missing_category"
-    ],
-    "review_status": "needs_review",
-    "extraction_confidence": 0.94,
+    "review_flags": [],
+    "review_status": "ok",
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -516,18 +494,16 @@
     "content_hash": "3fb4d8fc662743b81101a590ab05207653bec88b8d58640915650f1c601094d4",
     "metadata": {
       "date": "July 7, 2026",
-      "category": null,
+      "category": "Student Affairs",
       "department": null,
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -554,7 +530,7 @@
     "content_hash": "ebfd78766a0a4362dddf71d0cd1d617bc58232fd4e8103a50fac1fd2f3b72ef8",
     "metadata": {
       "date": "July 6, 2026",
-      "category": null,
+      "category": "Academics",
       "department": null,
       "semester": null,
       "deadline": "7.7.26",
@@ -562,11 +538,10 @@
       "required_action": null
     },
     "review_flags": [
-      "missing_category",
       "version_relationship_ambiguous"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.84,
+    "extraction_confidence": 0.9,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -595,18 +570,16 @@
     "content_hash": "d9dec8d1f2e7c1a2068b6c07bd0f17f9c24c052c25be5631c52759aaba41321f",
     "metadata": {
       "date": "June 15, 2026",
-      "category": null,
+      "category": "Academics",
       "department": "Computer Science Engineering Department",
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": "Interested may attend the same"
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -632,18 +605,16 @@
     "content_hash": "ce2f449a54c607682788ad28b2c290c733d666b11f2c3781ce26957bdb18b75e",
     "metadata": {
       "date": "June 16, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": null,
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -669,18 +640,16 @@
     "content_hash": "2b20c68b86ac3d870c61f5d057a971c4b28ef0342b483163eac262622ea35f03",
     "metadata": {
       "date": "June 20, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": null,
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -707,7 +676,7 @@
     "content_hash": "136c1a53868497f037d4d3d48564183b80a260cd5398198811a95912433836a7",
     "metadata": {
       "date": "June 23, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": "Ludhiana Department",
       "semester": "0 Semester",
       "deadline": "02.07.2026",
@@ -715,11 +684,10 @@
       "required_action": "Apply and analyze search strategies to solve the infornBd and uninforned problens"
     },
     "review_flags": [
-      "missing_category",
       "version_relationship_ambiguous"
     ],
     "review_status": "needs_review",
-    "extraction_confidence": 0.84,
+    "extraction_confidence": 0.9,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
@@ -748,18 +716,16 @@
     "content_hash": "13d7edc3bb36df8e26dc5b6520f82ef81a6f65659cd61a786f6e24eed5f77d98",
     "metadata": {
       "date": "July 2, 2026",
-      "category": null,
+      "category": "Examinations",
       "department": null,
       "semester": null,
       "deadline": null,
       "deadline_source_sentence": null,
       "required_action": null
     },
-    "review_flags": [
-      "missing_category"
-    ],
+    "review_flags": [],
     "review_status": "ok",
-    "extraction_confidence": 0.94,
+    "extraction_confidence": 1.0,
     "ingestion_status": "success",
     "supersedes_id": null,
     "superseded_by": null,
