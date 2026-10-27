@@ -28,9 +28,11 @@ python ingestion/chunk_notices.py
 
 The chunker selects notices whose `superseded_by` is null and whose
 `review_status` is not `needs_review`. It uses 400-token chunks with a 50-token
-overlap and upserts by `(notice_id, chunk_index)` when rerun. The
+overlap, stores the source `content_hash` on every chunk, and skips notices whose
+complete chunks already match that hash. If a notice changes or becomes
+ineligible, its old chunks are deleted before replacements are written. The
 selected embedding model is `sentence-transformers/all-MiniLM-L6-v2` (384
 dimensions); the chunker records that model on each chunk. It writes the 384-value
 vector and sets `embedding_status` to `succeeded`;
 if model loading or a chunk encoding fails, it still saves the text and metadata,
-sets the status to `failed`, and records the error for retry.
+sets the status to `failed`, and records the error.
