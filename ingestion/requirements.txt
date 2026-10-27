@@ -3,3 +3,4 @@ beautifulsoup4
 pdfplumber
 langchain-text-splitters
 tiktoken
+sentence-transformers

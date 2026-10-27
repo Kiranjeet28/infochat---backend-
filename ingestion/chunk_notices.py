@@ -15,6 +15,7 @@ REQUEST_TIMEOUT_SECONDS = 30
 CHUNK_SIZE_TOKENS = 400
 CHUNK_OVERLAP_TOKENS = 50
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_DIMENSIONS = 384
 
 
 def _credentials() -> tuple[str, dict[str, str]]:
@@ -93,6 +94,45 @@ def chunk_notice(
     ]
 
 
+def _embed_rows(chunk_rows: list[dict[str, Any]]) -> tuple[int, int]:
+    """Attach vectors when available; preserve rows and record failures otherwise."""
+    model = None
+    model_error: str | None = None
+    try:
+        from sentence_transformers import SentenceTransformer
+
+        model = SentenceTransformer(EMBEDDING_MODEL)
+    except Exception as error:  # Model download, dependency, or runtime failure.
+        model_error = f"{type(error).__name__}: {error}"[:1000]
+
+    succeeded = 0
+    failed = 0
+    for row in chunk_rows:
+        row["embedding_model"] = EMBEDDING_MODEL
+        row["embedding"] = None
+        if model_error:
+            row["embedding_status"] = "failed"
+            row["embedding_error"] = model_error
+            failed += 1
+            continue
+
+        try:
+            vector = model.encode(row["text"], normalize_embeddings=True).tolist()
+            if len(vector) != EMBEDDING_DIMENSIONS:
+                raise ValueError(
+                    f"Expected {EMBEDDING_DIMENSIONS} dimensions, got {len(vector)}"
+                )
+            row["embedding"] = [float(value) for value in vector]
+            row["embedding_status"] = "succeeded"
+            row["embedding_error"] = None
+            succeeded += 1
+        except Exception as error:  # A single chunk failure must not block the batch.
+            row["embedding_status"] = "failed"
+            row["embedding_error"] = f"{type(error).__name__}: {error}"[:1000]
+            failed += 1
+    return succeeded, failed
+
+
 def split_and_load() -> tuple[int, int, int]:
     project_url, headers = _credentials()
     splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
@@ -112,12 +152,13 @@ def split_and_load() -> tuple[int, int, int]:
             for notice in notices
             for row in chunk_notice(notice, splitter)
         ]
+        embedded, failed = _embed_rows(chunk_rows)
         endpoint = f"{project_url}/rest/v1/chunks"
         insert_headers = {
             **headers,
-            "Prefer": "resolution=ignore-duplicates,return=representation",
+            "Prefer": "resolution=merge-duplicates,return=representation",
         }
-        inserted = 0
+        saved = 0
         for start in range(0, len(chunk_rows), BATCH_SIZE):
             response = session.post(
                 endpoint,
@@ -128,14 +169,14 @@ def split_and_load() -> tuple[int, int, int]:
             )
             response.raise_for_status()
             result = response.json()
-            inserted += len(result) if isinstance(result, list) else 0
+            saved += len(result) if isinstance(result, list) else 0
 
-    skipped_existing = len(chunk_rows) - inserted
     print(f"Eligible notices: {len(notices)}")
     print(f"Chunks prepared: {len(chunk_rows)}")
-    print(f"Chunks inserted: {inserted}")
-    print(f"Chunks skipped because they already exist: {skipped_existing}")
-    return len(notices), inserted, skipped_existing
+    print(f"Chunks saved or updated: {saved}")
+    print(f"Embeddings succeeded: {embedded}")
+    print(f"Embeddings failed; text retained: {failed}")
+    return len(notices), saved, failed
 
 
 if __name__ == "__main__":
