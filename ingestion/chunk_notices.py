@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 import requests
@@ -16,6 +17,7 @@ CHUNK_SIZE_TOKENS = 400
 CHUNK_OVERLAP_TOKENS = 50
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_DIMENSIONS = 384
+INDEX_VERSION = "notices-v1-rcs400-overlap50-minilm384"
 
 
 def _credentials() -> tuple[str, dict[str, str]]:
@@ -44,7 +46,7 @@ def _fetch_notices(
         response = session.get(
             endpoint,
             params={
-                "select": "notice_id,title,published_at,source_url,category,department,semester,text,content_hash,review_status,superseded_by",
+                "select": "notice_id,title,published_at,source_url,category,department,semester,text,content_hash,review_status,superseded_by,index_version",
                 "order": "notice_id.asc",
                 "limit": PAGE_SIZE,
                 "offset": offset,
@@ -163,6 +165,7 @@ def _chunks_are_current(
     return (
         all(row.get("content_hash") == notice.get("content_hash") for row in existing)
         and {row["chunk_index"] for row in existing} == expected_indexes
+        and notice.get("index_version") == INDEX_VERSION
     )
 
 
@@ -171,16 +174,52 @@ def _delete_notice_chunks(
     project_url: str,
     headers: dict[str, str],
     notice_ids: set[str],
-) -> None:
+) -> dict[str, str]:
     endpoint = f"{project_url}/rest/v1/chunks"
+    failures: dict[str, str] = {}
     for notice_id in sorted(notice_ids):
-        response = session.delete(
-            endpoint,
-            params={"notice_id": f"eq.{notice_id}"},
-            headers=headers,
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
+        try:
+            response = session.delete(
+                endpoint,
+                params={"notice_id": f"eq.{notice_id}"},
+                headers=headers,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+        except requests.RequestException as error:
+            failures[notice_id] = f"Could not delete old chunks: {error}"[:1000]
+    return failures
+
+
+def _record_index_status(
+    session: requests.Session,
+    project_url: str,
+    headers: dict[str, str],
+    notice_id: str,
+    status: str,
+    reason: str | None = None,
+) -> None:
+    response = session.patch(
+        f"{project_url}/rest/v1/notices",
+        params={"notice_id": f"eq.{notice_id}"},
+        headers={**headers, "Prefer": "return=minimal"},
+        json={
+            "index_status": status,
+            "index_status_reason": reason,
+            "index_version": INDEX_VERSION,
+            "index_status_at": datetime.now(timezone.utc).isoformat(),
+        },
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+
+
+def _skip_reason(notice: dict[str, Any]) -> str:
+    if notice.get("superseded_by") is not None:
+        return f"Superseded by notice {notice['superseded_by']}"
+    if notice.get("review_status") == "needs_review":
+        return "Notice requires review"
+    return "Notice has no extracted text"
 
 
 def split_and_load() -> tuple[int, int, int]:
@@ -204,49 +243,89 @@ def split_and_load() -> tuple[int, int, int]:
         ]
         eligible_ids = {notice["notice_id"] for notice in eligible_notices}
 
-        chunk_rows: list[dict[str, Any]] = []
+        chunk_rows_by_notice: dict[str, list[dict[str, Any]]] = {}
         delete_ids = set(existing_by_notice) - eligible_ids
         skipped_unchanged = 0
+        failed_notices: dict[str, str] = {}
         for notice in eligible_notices:
             notice_id = notice["notice_id"]
-            new_chunks = chunk_notice(notice, splitter)
             old_chunks = existing_by_notice.get(notice_id, [])
+            try:
+                new_chunks = chunk_notice(notice, splitter)
+            except Exception as error:
+                delete_ids.add(notice_id)
+                failed_notices[notice_id] = f"Chunking failed: {type(error).__name__}: {error}"[:1000]
+                continue
             if _chunks_are_current(notice, old_chunks, new_chunks):
                 skipped_unchanged += 1
+                try:
+                    _record_index_status(session, project_url, headers, notice_id, "indexed")
+                except requests.RequestException as error:
+                    failed_notices[notice_id] = f"Could not record indexed status: {error}"[:1000]
                 continue
             if old_chunks:
                 delete_ids.add(notice_id)
-            chunk_rows.extend(new_chunks)
+            chunk_rows_by_notice[notice_id] = new_chunks
 
+        # Mark notices that are not eligible for chunking and remove any stale chunks.
+        for notice in notices:
+            if notice["notice_id"] in eligible_ids:
+                continue
+            reason = _skip_reason(notice)
+            try:
+                _record_index_status(
+                    session, project_url, headers, notice["notice_id"], "skipped", reason
+                )
+            except requests.RequestException as error:
+                failed_notices[notice["notice_id"]] = f"Could not record skipped status: {error}"[:1000]
+
+        chunk_rows = [row for rows in chunk_rows_by_notice.values() for row in rows]
         embedded, failed = _embed_rows(chunk_rows) if chunk_rows else (0, 0)
         # Remove stale chunks after replacements are prepared, before writing new chunks.
-        _delete_notice_chunks(session, project_url, headers, delete_ids)
+        delete_failures = _delete_notice_chunks(session, project_url, headers, delete_ids)
+        failed_notices.update(delete_failures)
         endpoint = f"{project_url}/rest/v1/chunks"
         insert_headers = {
             **headers,
             "Prefer": "resolution=merge-duplicates,return=representation",
         }
         saved = 0
-        for start in range(0, len(chunk_rows), BATCH_SIZE):
-            response = session.post(
-                endpoint,
-                params={"on_conflict": "notice_id,chunk_index"},
-                headers=insert_headers,
-                json=chunk_rows[start : start + BATCH_SIZE],
-                timeout=REQUEST_TIMEOUT_SECONDS,
-            )
-            response.raise_for_status()
-            result = response.json()
-            saved += len(result) if isinstance(result, list) else 0
+        for notice_id, rows in chunk_rows_by_notice.items():
+            if notice_id in delete_failures:
+                continue
+            try:
+                for start in range(0, len(rows), BATCH_SIZE):
+                    response = session.post(
+                        endpoint,
+                        params={"on_conflict": "notice_id,chunk_index"},
+                        headers=insert_headers,
+                        json=rows[start : start + BATCH_SIZE],
+                        timeout=REQUEST_TIMEOUT_SECONDS,
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    saved += len(result) if isinstance(result, list) else 0
+                _record_index_status(session, project_url, headers, notice_id, "indexed")
+            except requests.RequestException as error:
+                failed_notices[notice_id] = f"Chunk save failed: {error}"[:1000]
+
+        for notice_id, reason in failed_notices.items():
+            try:
+                _record_index_status(
+                    session, project_url, headers, notice_id, "failed", reason
+                )
+            except requests.RequestException as error:
+                print(f"Could not record failed status for {notice_id}: {error}")
 
     print(f"Eligible notices: {len(eligible_notices)}")
     print(f"Unchanged notices skipped: {skipped_unchanged}")
-    print(f"Notices whose old chunks were removed: {len(delete_ids)}")
+    print(f"Old chunk groups removed: {len(delete_ids) - len(delete_failures)}")
     print(f"Chunks prepared: {len(chunk_rows)}")
     print(f"Chunks saved or updated: {saved}")
     print(f"Embeddings succeeded: {embedded}")
     print(f"Embeddings failed; text retained: {failed}")
-    return len(eligible_notices), saved, failed
+    print(f"Notices marked failed: {len(failed_notices)}")
+    return len(eligible_notices), saved, len(failed_notices)
 
 
 if __name__ == "__main__":

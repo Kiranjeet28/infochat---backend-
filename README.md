@@ -36,3 +36,9 @@ dimensions); the chunker records that model on each chunk. It writes the 384-val
 vector and sets `embedding_status` to `succeeded`;
 if model loading or a chunk encoding fails, it still saves the text and metadata,
 sets the status to `failed`, and records the error.
+
+Each notice also records `index_status` (`indexed`, `failed`, or `skipped`), an
+`index_status_reason` where applicable, the `index_version`, and
+`index_status_at`. The chunking run marks superseded or `needs_review` notices as
+skipped, successful text indexing as indexed, and database write failures as
+failed.
