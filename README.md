@@ -52,7 +52,11 @@ results = retrieve("When is the makeup examination?", semester="5th semester")
 
 `retrieve` embeds the question with the same FastEmbed model used during
 ingestion, runs semantic and keyword search, and returns up to five chunks
-ranked by reciprocal rank fusion. Set `SUPABASE_URL` and
+ranked by reciprocal rank fusion. If keyword search has no matches and the
+best semantic distance is above `0.75`, it returns `"not found"`. This
+provisional cutoff is below the reported no-match distances (at least `0.777`);
+measure correct-hit distances with `ingestion/test_search.py` before tuning it.
+Set `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` in the environment (or `.env`).
 
 Each notice also records `index_status` (`indexed`, `failed`, or `skipped`), an

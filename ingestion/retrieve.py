@@ -16,6 +16,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TOP_K = 5
 RRF_K = 60
+SIMILARITY_DISTANCE_CUTOFF = 0.75
 REQUEST_TIMEOUT_SECONDS = 30
 
 _embedding_model: TextEmbedding | None = None
@@ -25,7 +26,7 @@ def retrieve(
     question: str,
     department: str | None = None,
     semester: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, Any]] | str:
     """Return the five best chunks using reciprocal rank fusion.
 
     Requires ``SUPABASE_URL`` and ``SUPABASE_SERVICE_ROLE_KEY`` in the
@@ -79,6 +80,14 @@ def retrieve(
         )
         keyword_response.raise_for_status()
         keyword_rows = keyword_response.json()
+
+    best_distance = similarity_rows[0].get("score") if similarity_rows else None
+    if (
+        not keyword_rows
+        and best_distance is not None
+        and float(best_distance) > SIMILARITY_DISTANCE_CUTOFF
+    ):
+        return "not found"
 
     fused: dict[str, dict[str, Any]] = {}
     for rows in (similarity_rows, keyword_rows):
