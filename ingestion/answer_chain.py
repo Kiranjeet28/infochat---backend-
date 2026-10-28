@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from operator import itemgetter
+import re
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -40,6 +42,22 @@ def format_evidence(documents: Sequence[Document]) -> str:
     return "\n\n".join(blocks)
 
 
+def _validate_answer(values: dict[str, Any]) -> dict[str, Any]:
+    """Reject answers without citations or with citations outside retrieved evidence."""
+    documents: Sequence[Document] = values["documents"]
+    answer = str(values["answer"])
+    citations = [int(number) for number in re.findall(r"\[(\d+)\]", answer)]
+    valid = bool(citations) and all(1 <= number <= len(documents) for number in citations)
+    sources = [
+        {
+            key: document.metadata.get(key)
+            for key in ("notice_id", "title", "published_at", "source_url")
+        }
+        for document in documents
+    ]
+    return {"answer": answer if valid else "not found", "sources": sources}
+
+
 def build_answer_chain(
     retriever: NoticeRetriever | None = None,
     model: Runnable | None = None,
@@ -56,7 +74,8 @@ def build_answer_chain(
         | RunnablePassthrough.assign(
             evidence=RunnableLambda(lambda values: format_evidence(values["documents"]))
         )
-        | NOTICE_ANSWER_PROMPT
-        | selected_model
-        | StrOutputParser()
+        | RunnablePassthrough.assign(
+            answer=NOTICE_ANSWER_PROMPT | selected_model | StrOutputParser()
+        )
+        | RunnableLambda(_validate_answer)
     )

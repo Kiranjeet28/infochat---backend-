@@ -96,8 +96,13 @@ request timeout. Create it and connect it to the answer prompt like this:
 from ingestion.answer_chain import build_answer_chain
 
 answer_chain = build_answer_chain()
-answer = answer_chain.invoke({"question": "When is the makeup examination?"})
+result = answer_chain.invoke({"question": "When is the makeup examination?"})
+# result: {"answer": "... [1]", "sources": [{"title": ..., "source_url": ..., ...}]}
 ```
+
+The chain checks that the answer contains at least one numeric citation and
+that every citation points to a retrieved document. If not, `answer` is
+`"not found"`; `sources` still contains the retrieved source cards.
 
 Each notice also records `index_status` (`indexed`, `failed`, or `skipped`), an
 `index_status_reason` where applicable, the `index_version`, and
