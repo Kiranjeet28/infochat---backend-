@@ -68,6 +68,20 @@ retriever = NoticeRetriever(department="Computer Science Engineering Department"
 documents = retriever.invoke("When is the makeup examination?")
 ```
 
+Use `NOTICE_ANSWER_PROMPT` to format a grounded answer request. Supply evidence
+with stable numeric labels and each chunk's notice date, for example:
+
+```python
+from ingestion.prompt import NOTICE_ANSWER_PROMPT
+
+messages = NOTICE_ANSWER_PROMPT.invoke(
+    {
+        "question": "When is the makeup examination?",
+        "evidence": "[1] Notice date: 2026-08-29\nSchedule details ...",
+    }
+)
+```
+
 Set `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` in the environment (or `.env`).
 
