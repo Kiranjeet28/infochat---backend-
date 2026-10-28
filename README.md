@@ -58,6 +58,16 @@ provisional cutoff is below the reported no-match distances (at least `0.777`);
 measure correct-hit distances with `ingestion/test_search.py` before tuning it.
 Each result includes `chunk_text`, `notice_id`, `title`, `published_at`, and
 `source_url` for answer evidence and source cards.
+For LangChain, use the adapter, which returns `Document` objects with the chunk
+as `page_content` and source fields in `metadata`:
+
+```python
+from ingestion.langchain_retriever import NoticeRetriever
+
+retriever = NoticeRetriever(department="Computer Science Engineering Department")
+documents = retriever.invoke("When is the makeup examination?")
+```
+
 Set `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` in the environment (or `.env`).
 

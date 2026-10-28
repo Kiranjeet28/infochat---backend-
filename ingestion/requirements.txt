@@ -4,6 +4,7 @@ supabase
 beautifulsoup4
 pdfplumber
 langchain-text-splitters
+langchain-core
 tiktoken
 sentence-transformers
 fastembed
