@@ -104,6 +104,19 @@ The chain checks that the answer contains at least one numeric citation and
 that every citation points to a retrieved document. If not, `answer` is
 `"not found"`; `sources` still contains the retrieved source cards.
 
+## Ask API
+
+Run the FastAPI service from the repository root:
+
+```powershell
+uvicorn api:app --reload
+```
+
+Send `POST /api/ask` with a JSON body such as
+`{"question":"When is the makeup examination?"}`. Questions must contain
+1–1000 characters. The response includes `answer`, `sources`, and a `status` of
+`answered` or `not_found`; upstream failures return a generic `502` error.
+
 Each notice also records `index_status` (`indexed`, `failed`, or `skipped`), an
 `index_status_reason` where applicable, the `index_version`, and
 `index_status_at`. The chunking run marks superseded or `needs_review` notices as

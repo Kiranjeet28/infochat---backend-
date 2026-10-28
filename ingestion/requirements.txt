@@ -6,6 +6,8 @@ pdfplumber
 langchain-text-splitters
 langchain-core
 langchain-groq
+fastapi
+uvicorn[standard]
 tiktoken
 sentence-transformers
 fastembed
