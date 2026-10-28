@@ -93,11 +93,10 @@ configured model uses `openai/gpt-oss-120b`, temperature `0`, and a 30-second
 request timeout. Create it and connect it to the answer prompt like this:
 
 ```python
-from ingestion.chat_model import create_chat_model
-from ingestion.prompt import NOTICE_ANSWER_PROMPT
+from ingestion.answer_chain import build_answer_chain
 
-answer_chain = NOTICE_ANSWER_PROMPT | create_chat_model()
-answer = answer_chain.invoke({"question": "...", "evidence": "[1] ..."})
+answer_chain = build_answer_chain()
+answer = answer_chain.invoke({"question": "When is the makeup examination?"})
 ```
 
 Each notice also records `index_status` (`indexed`, `failed`, or `skipped`), an
