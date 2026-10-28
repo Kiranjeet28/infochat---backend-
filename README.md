@@ -37,6 +37,24 @@ vector and sets `embedding_status` to `succeeded`;
 if model loading or a chunk encoding fails, it still saves the text and metadata,
 sets the status to `failed`, and records the error.
 
+## Retrieve current notices
+
+Apply `ingestion/search_chunks.sql` in Supabase to install the hybrid search RPCs.
+They only search chunks whose notice has `review_status = 'ok'`, is not
+superseded, and is not marked withdrawn. Both RPCs accept optional department
+and semester filters. Call the retrieval function from the repository root:
+
+```python
+from ingestion.retrieve import retrieve
+
+results = retrieve("When is the makeup examination?", semester="5th semester")
+```
+
+`retrieve` embeds the question with the same FastEmbed model used during
+ingestion, runs semantic and keyword search, and returns up to five chunks
+ranked by reciprocal rank fusion. Set `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` in the environment (or `.env`).
+
 Each notice also records `index_status` (`indexed`, `failed`, or `skipped`), an
 `index_status_reason` where applicable, the `index_version`, and
 `index_status_at`. The chunking run marks superseded or `needs_review` notices as
