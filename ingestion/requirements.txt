@@ -5,6 +5,7 @@ beautifulsoup4
 pdfplumber
 langchain-text-splitters
 langchain-core
+langchain-groq
 tiktoken
 sentence-transformers
 fastembed

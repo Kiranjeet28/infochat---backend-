@@ -85,6 +85,21 @@ messages = NOTICE_ANSWER_PROMPT.invoke(
 Set `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` in the environment (or `.env`).
 
+## Groq chat model
+
+Install the added `langchain-groq` dependency, then put your Groq API key in
+the ignored local `.env` file as `GROQ_API_KEY=...` (see `.env.example`). The
+configured model uses `openai/gpt-oss-120b`, temperature `0`, and a 30-second
+request timeout. Create it and connect it to the answer prompt like this:
+
+```python
+from ingestion.chat_model import create_chat_model
+from ingestion.prompt import NOTICE_ANSWER_PROMPT
+
+answer_chain = NOTICE_ANSWER_PROMPT | create_chat_model()
+answer = answer_chain.invoke({"question": "...", "evidence": "[1] ..."})
+```
+
 Each notice also records `index_status` (`indexed`, `failed`, or `skipped`), an
 `index_status_reason` where applicable, the `index_version`, and
 `index_status_at`. The chunking run marks superseded or `needs_review` notices as
