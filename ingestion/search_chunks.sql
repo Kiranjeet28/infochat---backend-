@@ -12,6 +12,8 @@ CREATE OR REPLACE FUNCTION public.search_chunks_similarity(
 )
 RETURNS TABLE (
     chunk_id uuid,
+    notice_id uuid,
+    chunk_text text,
     title text,
     published_at text,
     source_url text,
@@ -25,6 +27,8 @@ SET search_path = public, extensions
 AS $$
     SELECT
         c.chunk_id,
+        c.notice_id,
+        c.text::text AS chunk_text,
         c.title::text,
         c.published_at::text,
         c.source_url::text,
@@ -51,6 +55,8 @@ CREATE OR REPLACE FUNCTION public.search_chunks_keyword(
 )
 RETURNS TABLE (
     chunk_id uuid,
+    notice_id uuid,
+    chunk_text text,
     title text,
     published_at text,
     source_url text,
@@ -64,6 +70,8 @@ SET search_path = public, extensions
 AS $$
     SELECT
         c.chunk_id,
+        c.notice_id,
+        c.text::text AS chunk_text,
         c.title::text,
         c.published_at::text,
         c.source_url::text,

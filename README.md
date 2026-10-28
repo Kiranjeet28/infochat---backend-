@@ -56,6 +56,8 @@ ranked by reciprocal rank fusion. If keyword search has no matches and the
 best semantic distance is above `0.75`, it returns `"not found"`. This
 provisional cutoff is below the reported no-match distances (at least `0.777`);
 measure correct-hit distances with `ingestion/test_search.py` before tuning it.
+Each result includes `chunk_text`, `notice_id`, `title`, `published_at`, and
+`source_url` for answer evidence and source cards.
 Set `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` in the environment (or `.env`).
 
