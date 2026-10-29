@@ -12,7 +12,7 @@ CREATE OR REPLACE FUNCTION public.search_chunks_similarity(
 )
 RETURNS TABLE (
     chunk_id uuid,
-    notice_id uuid,
+    notice_id text,
     chunk_text text,
     title text,
     published_at text,
@@ -40,7 +40,6 @@ AS $$
     WHERE c.embedding IS NOT NULL
       AND n.review_status = 'ok'
       AND n.superseded_by IS NULL
-      AND n.withdrawn IS NOT TRUE
       AND (filter_department IS NULL OR n.department = filter_department)
       AND (filter_semester IS NULL OR n.semester = filter_semester)
     ORDER BY c.embedding <=> query_embedding ASC, c.chunk_id
@@ -55,7 +54,7 @@ CREATE OR REPLACE FUNCTION public.search_chunks_keyword(
 )
 RETURNS TABLE (
     chunk_id uuid,
-    notice_id uuid,
+    notice_id text,
     chunk_text text,
     title text,
     published_at text,
@@ -86,7 +85,6 @@ AS $$
     WHERE c.search_vector @@ websearch_to_tsquery('simple', search_query)
       AND n.review_status = 'ok'
       AND n.superseded_by IS NULL
-      AND n.withdrawn IS NOT TRUE
       AND (filter_department IS NULL OR n.department = filter_department)
       AND (filter_semester IS NULL OR n.semester = filter_semester)
     ORDER BY score DESC, c.chunk_id
