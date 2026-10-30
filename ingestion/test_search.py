@@ -9,11 +9,10 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
-from fastembed import TextEmbedding
+from ingestion.embedding_config import EMBEDDING_MODEL, create_embedding_model
 
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_DIMENSIONS = 384
 TOP_K = 5
 REQUEST_TIMEOUT_SECONDS = 30
@@ -177,7 +176,7 @@ def _rank_label(rank: int | None) -> str:
 
 def run() -> None:
     project_url, headers = _credentials()
-    model = TextEmbedding(model_name=EMBEDDING_MODEL)
+    model = create_embedding_model()
     with requests.Session() as session:
         chunks = _fetch_chunks(session, project_url, headers)
         if not chunks:

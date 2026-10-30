@@ -2,3 +2,5 @@
 .env.*
 !.env.example
 .test-packages/
+/models_cache/
+models_cache/

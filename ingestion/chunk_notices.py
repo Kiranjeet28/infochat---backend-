@@ -10,6 +10,7 @@ from typing import Any
 import requests
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from ingestion.embedding_config import EMBEDDING_MODEL, create_embedding_model
 
 
 PAGE_SIZE = 1000
@@ -18,7 +19,6 @@ BATCH_SIZE = 100
 REQUEST_TIMEOUT_SECONDS = 30
 CHUNK_SIZE_TOKENS = 400
 CHUNK_OVERLAP_TOKENS = 50
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_DIMENSIONS = 384
 INDEX_VERSION = "notices-v1-rcs400-overlap50-minilm384"
 
@@ -125,9 +125,7 @@ def _embed_rows(chunk_rows: list[dict[str, Any]]) -> tuple[int, int]:
     model = None
     model_error: str | None = None
     try:
-        from fastembed import TextEmbedding
-
-        model = TextEmbedding(model_name=EMBEDDING_MODEL)
+        model = create_embedding_model()
     except Exception as error:  # Model download, dependency, or runtime failure.
         model_error = f"{type(error).__name__}: {error}"[:1000]
 

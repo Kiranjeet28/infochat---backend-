@@ -29,7 +29,7 @@ class SourceCard(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     sources: list[SourceCard]
-    status: Literal["answered", "not_found"]
+    status: Literal["answered", "not_found", "invalid_citation"]
 
 
 @app.post("/api/ask", response_model=AskResponse)
@@ -53,7 +53,5 @@ async def ask(request: AskRequest) -> AskResponse:
 
     answer = result.get("answer", "not found")
     sources = result.get("sources", [])
-    status: Literal["answered", "not_found"] = (
-        "not_found" if answer == "not found" else "answered"
-    )
+    status = result.get("status", "not_found" if answer == "not found" else "answered")
     return AskResponse(answer=answer, sources=sources, status=status)

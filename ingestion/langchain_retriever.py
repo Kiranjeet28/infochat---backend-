@@ -44,6 +44,8 @@ class NoticeRetriever(BaseRetriever):
                     "department",
                     "semester",
                     "rrf_score",
+                    "similarity_distance",
+                    "keyword_score",
                 )
                 if row.get(key) is not None
             }
