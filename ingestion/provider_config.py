@@ -9,13 +9,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(ENV_FILE)
 
 # Override through .env: LLM_PROVIDER_ORDER, LLM_MAX_ATTEMPTS,
 # LLM_MAX_TOTAL_TIME_SECONDS, LLM_RETRY_WAIT_SECONDS, and each provider's
 # *_ENABLED, *_MODEL, and *_TIMEOUT_SECONDS settings.
 DEFAULT_PROVIDER_ORDER = ("groq", "gemini")
-DEFAULT_MAX_ATTEMPTS = 2
+DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_MAX_TOTAL_TIME_SECONDS = 45.0
 DEFAULT_RETRY_WAIT_SECONDS = 1.0
 
@@ -58,10 +59,11 @@ def _positive_float(name: str, default: float) -> float:
 
 
 def get_provider_runtime_config() -> ProviderRuntimeConfig:
-    order_text = os.environ.get("LLM_PROVIDER_ORDER", ",".join(DEFAULT_PROVIDER_ORDER))
-    provider_order = tuple(dict.fromkeys(
+    order_text = os.environ.get("LLM_PROVIDER_ORDER", "").strip()
+    configured_order = tuple(dict.fromkeys(
         name.strip().casefold() for name in order_text.split(",") if name.strip()
     ))
+    provider_order = configured_order or DEFAULT_PROVIDER_ORDER
     providers = {
         "groq": ProviderSettings(
             enabled=_env_bool("GROQ_ENABLED", True),
@@ -82,4 +84,12 @@ def get_provider_runtime_config() -> ProviderRuntimeConfig:
             "LLM_MAX_TOTAL_TIME_SECONDS", DEFAULT_MAX_TOTAL_TIME_SECONDS
         ),
         retry_wait_seconds=_positive_float("LLM_RETRY_WAIT_SECONDS", DEFAULT_RETRY_WAIT_SECONDS),
+    )
+
+
+def enabled_provider_names(config: ProviderRuntimeConfig) -> tuple[str, ...]:
+    """Return enabled providers in configured order, excluding unknown names."""
+    return tuple(
+        name for name in config.provider_order
+        if name in config.providers and config.providers[name].enabled
     )

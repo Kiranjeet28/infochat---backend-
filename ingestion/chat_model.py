@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Mapping
 
 from dotenv import load_dotenv
@@ -64,6 +67,76 @@ def _http_status(error: Exception) -> int | None:
     if status is None:
         status = getattr(getattr(error, "response", None), "status_code", None)
     return status
+
+
+def _error_headers(error: Exception) -> dict[str, str]:
+    response = getattr(error, "response", None)
+    raw_headers = getattr(response, "headers", None)
+    if raw_headers is None:
+        raw_headers = getattr(error, "headers", None)
+    if not isinstance(raw_headers, Mapping):
+        return {}
+    return {str(key).casefold(): str(value).strip() for key, value in raw_headers.items()}
+
+
+def _rate_limit_headers(error: Exception) -> dict[str, str | None]:
+    headers = _error_headers(error)
+
+    def choose(*names: str) -> str | None:
+        return next((headers[name] for name in names if headers.get(name)), None)
+
+    selected = {
+        "remaining_requests": choose(
+            "x-ratelimit-remaining-requests", "ratelimit-remaining-requests"
+        ),
+        "remaining_tokens": choose(
+            "x-ratelimit-remaining-tokens", "ratelimit-remaining-tokens"
+        ),
+        "reset": choose(
+            "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens",
+            "x-ratelimit-reset", "ratelimit-reset", "retry-after",
+        ),
+    }
+    return {
+        key: value[:80] if value and re.fullmatch(r"[0-9A-Za-z:.,+_ -]+", value) else None
+        for key, value in selected.items()
+    }
+
+
+def _parse_wait_header(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    duration_parts = re.findall(r"(\d+(?:\.\d+)?)(ms|s|m|h)", value.casefold())
+    if duration_parts and "".join(number + unit for number, unit in duration_parts) == value.casefold().replace(" ", ""):
+        scale = {"ms": 0.001, "s": 1.0, "m": 60.0, "h": 3600.0}
+        return sum(float(number) * scale[unit] for number, unit in duration_parts)
+    try:
+        retry_at = parsedate_to_datetime(value)
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _retry_after_seconds(error: Exception, fallback: float) -> float:
+    headers = _error_headers(error)
+    value = headers.get("retry-after")
+    if value is None:
+        value = next((
+            headers[name]
+            for name in (
+                "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens",
+                "x-ratelimit-reset", "ratelimit-reset",
+            )
+            if headers.get(name)
+        ), None)
+    parsed = _parse_wait_header(value)
+    return min(10.0, parsed if parsed is not None else fallback)
 
 
 def is_retryable_provider_error(error: Exception) -> bool:
@@ -136,14 +209,16 @@ def _result(
 def generate_answer(
     prompt: Any,
     *,
-    config: ProviderRuntimeConfig | None = None,
+    provider_config: ProviderRuntimeConfig | None = None,
     adapters: Mapping[str, Callable[..., Any]] | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
     clock_fn: Callable[[], float] = time.monotonic,
     audit_sink: Callable[[dict[str, Any]], None] = _append_audit_event,
 ) -> dict[str, Any]:
     """Generate one answer through the configured, bounded provider sequence."""
-    settings = config or get_provider_runtime_config()
+    settings = provider_config or get_provider_runtime_config()
+    if not isinstance(settings, ProviderRuntimeConfig):
+        raise TypeError("provider_config must be a ProviderRuntimeConfig")
     selected_adapters = adapters if adapters is not None else DEFAULT_ADAPTERS
     providers = [
         name for name in settings.provider_order
@@ -175,8 +250,11 @@ def generate_answer(
             error_type="NoProviderEnabledError", retry_wait_seconds=0.0,
         )
 
-    attempt_limit = min(settings.max_attempts, len(providers))
-    for provider in providers[:attempt_limit]:
+    attempt_limit = settings.max_attempts
+    provider_index = 0
+    same_provider_429_retry_used = False
+    while provider_index < len(providers) and attempts < attempt_limit:
+        provider = providers[provider_index]
         remaining = settings.max_total_time_seconds - (clock_fn() - started)
         if remaining <= 0:
             break
@@ -217,21 +295,40 @@ def generate_answer(
             last_error = error
             retryable = is_retryable_provider_error(error)
             remaining = settings.max_total_time_seconds - (clock_fn() - started)
-            can_switch = retryable and attempts < attempt_limit and remaining > 0
-            wait = min(settings.retry_wait_seconds, remaining) if can_switch else 0.0
+            is_rate_limited = _http_status(error) == 429
+            retry_same = (
+                is_rate_limited
+                and not same_provider_429_retry_used
+                and attempts < attempt_limit
+                and remaining > 0
+            )
+            can_switch = (
+                retryable
+                and provider_index + 1 < len(providers)
+                and attempts < attempt_limit
+                and remaining > 0
+            )
+            requested_wait = (
+                _retry_after_seconds(error, settings.retry_wait_seconds)
+                if is_rate_limited else settings.retry_wait_seconds
+            )
+            # A 429 gets one header-guided wait before retrying the same provider.
+            # If that retry also gets 429, move on immediately without a second wait.
+            should_wait = retry_same or (can_switch and not is_rate_limited)
+            wait = min(requested_wait, remaining) if should_wait else 0.0
             audit_sink({
                 "provider": provider,
                 "model": provider_settings.model,
                 "latency_seconds": max(0.0, clock_fn() - attempt_started),
-                "status": (
-                    "retryable_error" if can_switch
-                    else "ai_unavailable" if retryable
-                    else "error"
+                "status": "error" if not retryable else (
+                    "retrying_same_provider" if retry_same else
+                    "retrying_next_provider" if can_switch else "ai_unavailable"
                 ),
                 "attempts": attempts,
                 "retry_wait_seconds": wait,
                 "error_type": type(error).__name__,
                 "token_usage": None,
+                "rate_limit_headers": _rate_limit_headers(error),
             })
             if not retryable:
                 return _result(
@@ -240,10 +337,15 @@ def generate_answer(
                     attempts=attempts, status="error", error_type=type(error).__name__,
                     retry_wait_seconds=retry_wait,
                 )
-            if can_switch:
+            if retry_same or can_switch:
                 if wait:
                     sleep_fn(wait)
                     retry_wait += wait
+                if retry_same:
+                    same_provider_429_retry_used = True
+                else:
+                    provider_index += 1
+                    same_provider_429_retry_used = False
                 continue
             break
 

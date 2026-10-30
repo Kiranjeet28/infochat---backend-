@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import os
+import json
 import unittest
 from datetime import date
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+import sys
+import tempfile
 from unittest.mock import patch
 
 from langchain_core.documents import Document
@@ -13,11 +19,14 @@ from langchain_core.runnables import RunnableLambda
 from ingestion.answer_chain import (
     _validate_answer,
     build_answer_chain,
+    citation_tokens,
     extract_citations,
     format_evidence,
     normalize_answer,
 )
 from ingestion.chat_model import generate_answer
+import ingestion.chat_model as provider_module
+import ingestion.evaluate_chain as evaluate_chain
 from ingestion.evaluate_chain import (
     RESULT_COLUMNS,
     _append_debug_record,
@@ -25,12 +34,14 @@ from ingestion.evaluate_chain import (
     _render_cell,
     cases,
 )
+from ingestion.prompt import SYSTEM_PROMPT_CANARY
 from ingestion.load_supabase import _notice_row, notices_missing_published_at
 from ingestion.retrieve import retrieve
 from ingestion.retrieval_config import SIMILARITY_DISTANCE_CUTOFF
 from ingestion.provider_config import (
     ProviderRuntimeConfig,
     ProviderSettings,
+    enabled_provider_names,
     get_provider_runtime_config,
 )
 
@@ -122,10 +133,20 @@ class CitationTests(unittest.TestCase):
         self.assertEqual(result["status"], "answered")
         self.assertEqual(extract_citations("Facts [1-3]"), ([1, 2, 3], True))
 
+    def test_bracketed_notice_date_is_ignored_next_to_valid_citation(self):
+        text = "Fact [Notice date: July 28, 2026] [1]"
+        result = self.validate(text)
+        self.assertEqual(result["status"], "answered")
+        self.assertTrue(result["citations_valid"])
+        self.assertEqual(citation_tokens(text), ["[1]"])
+
+    def test_non_citation_bracket_text_is_ignored_not_rejected(self):
+        self.assertEqual(extract_citations("Fact [section 2, paragraph 4] [1,2,3] [1]"), ([1], True))
+
     def test_out_of_range_citation_is_invalid(self):
         result = self.validate("Fact [9]")
         self.assertEqual(result["status"], "invalid_citation")
-        self.assertEqual(result["answer"], "not found")
+        self.assertEqual(result["answer"], "I could not verify an answer from the notices.")
         self.assertEqual(len(result["sources"]), 2)
 
     def test_no_citation_is_invalid(self):
@@ -159,8 +180,8 @@ class RetrievalAndRoutingTests(unittest.TestCase):
         self.assertEqual(
             RESULT_COLUMNS,
             (
-                "case", "question", "expected_status", "actual_status", "stage", "answer",
-                "cited_titles", "citations_valid", "best_distance", "latency", "error", "pass/fail",
+                "case", "run_number", "question", "expected_status", "actual_status", "stage", "answer",
+                "cited_titles", "citations_valid", "best_distance", "latency", "delay_waited_seconds", "error", "pass/fail",
                 "needs_manual_fact_check", "fail_reason", "provider", "attempts", "retry_wait_seconds",
             ),
         )
@@ -172,6 +193,47 @@ class RetrievalAndRoutingTests(unittest.TestCase):
         self.assertEqual(records[0]["citations_parsed"], [1, 2])
         self.assertTrue(records[0]["citations_in_range"])
         self.assertNotIn("system_prompt", records[0])
+
+    def test_failed_citation_debug_lists_brackets_tokens_reason_and_titles_only(self):
+        records = []
+        _append_debug_record(
+            records,
+            "case one",
+            "Copied secret notice wording [Notice date: July 28, 2026] [9]",
+            1,
+            source_titles=["Public Notice Title"],
+            notice_texts=["Copied secret notice wording"],
+        )
+        record = records[0]
+        self.assertEqual(record["raw_model_output"], "[NOTICE TEXT REDACTED] [Notice date: July 28, 2026] [9]")
+        self.assertEqual(record["bracket_tokens"], ["[Notice date: July 28, 2026]", "[9]"])
+        self.assertEqual(record["citation_tokens"], ["[9]"])
+        self.assertEqual(record["citations_parsed"], [9])
+        self.assertIn("outside the 1 retrieved source", record["rejection_reason"])
+        self.assertEqual(record["retrieved_titles"], ["Public Notice Title"])
+        self.assertNotIn("Copied secret", json.dumps(record))
+
+    def test_repeat_runner_runs_cases_repeatedly_and_prints_summary(self):
+        calls = []
+
+        def fake_run_case(test, **kwargs):
+            calls.append((test["case"], test["run_number"], kwargs["delay_seconds"]))
+            return {
+                **test, "provider": "fake", "model": "fake", "attempts": 1,
+                "actual_status": "answered", "pass/fail": "pass",
+            }
+
+        output = StringIO()
+        with (
+            patch.object(evaluate_chain, "_run_case", side_effect=fake_run_case),
+            patch.object(evaluate_chain, "_write_results", return_value=(Path("results.md"), Path("results.json"))),
+            redirect_stdout(output),
+        ):
+            evaluate_chain._run_full_evaluation(repeat=2, delay_seconds=5.0)
+        self.assertEqual(len(calls), len(cases()) * 2)
+        self.assertEqual(calls[0][1:], (1, 0.0))
+        self.assertEqual(calls[1][1:], (2, 5.0))
+        self.assertIn("| existing 1 | 2 | 2 |", output.getvalue())
 
     def test_debug_record_redacts_system_prompt_lines_and_api_tokens(self):
         records = []
@@ -224,6 +286,71 @@ class RetrievalAndRoutingTests(unittest.TestCase):
         }
         self.assertEqual(outputs, {"(up to 12 p.m.)"})
 
+    def test_runner_latency_excludes_between_case_delay_and_reports_it(self):
+        clock = [0.0]
+
+        def fake_retrieve(*_args, **_kwargs):
+            clock[0] += 0.25
+            return {
+                "results": [{
+                    "chunk_id": "c1", "chunk_text": "Evidence", "notice_id": "n1",
+                    "title": "Notice", "published_at": "2026-01-01", "source_url": "https://example.invalid",
+                }],
+                "best_distance": 0.2,
+            }
+
+        class FakeChain:
+            def invoke(self, _input):
+                clock[0] += 0.4
+                return {
+                    "status": "answered", "answer": "Fact [1]", "citations_valid": True,
+                    "latency_seconds": 0.4, "retry_wait_seconds": 0.0,
+                    "provider": "fake", "model": "fake-model", "attempts": 1,
+                }
+
+        def fake_sleep(seconds):
+            clock[0] += seconds
+
+        with (
+            patch.object(evaluate_chain.time, "perf_counter", side_effect=lambda: clock[0]),
+            patch.object(evaluate_chain.time, "sleep", side_effect=fake_sleep),
+            patch.object(evaluate_chain, "retrieve", side_effect=fake_retrieve),
+            patch.object(evaluate_chain, "build_answer_chain", return_value=FakeChain()),
+        ):
+            result = evaluate_chain._run_case(
+                next(case for case in cases() if case["case"] == "existing 2"),
+                delay_seconds=0.5,
+            )
+        self.assertEqual(result["latency"], 0.65)
+        self.assertEqual(result["delay_waited_seconds"], 0.5)
+
+    def test_debug_raw_records_raw_invalid_answer_for_failed_case(self):
+        retrieval = {
+            "results": [{"chunk_text": "Evidence", "title": "Notice", "published_at": "2026-01-01"}],
+            "best_distance": 0.2,
+        }
+        records = []
+        def fake_chain_builder(**kwargs):
+            return build_answer_chain(
+                retriever=kwargs["retriever"],
+                answer_generator=lambda _prompt: {
+                    "text": "Answer without citation", "status": "generated", "provider": "fake",
+                    "model": "fake", "attempts": 1, "latency_seconds": 0.01, "retry_wait_seconds": 0.0,
+                },
+                raw_output_callback=kwargs["raw_output_callback"],
+            )
+        with (
+            patch.object(evaluate_chain, "retrieve", return_value=retrieval),
+            patch.object(evaluate_chain, "build_answer_chain", side_effect=fake_chain_builder),
+        ):
+            result = evaluate_chain._run_case(
+                next(case for case in cases() if case["case"] == "existing 2"),
+                debug_records=records,
+            )
+        self.assertEqual(result["actual_status"], "invalid_citation")
+        self.assertEqual(records[0]["raw_model_output"], "Answer without citation")
+        self.assertEqual(records[0]["citations_parsed"], [])
+
     def test_ambiguous_case_fails_if_only_one_notice_is_selected(self):
         result = {
             "case": "ambiguous",
@@ -242,6 +369,34 @@ class RetrievalAndRoutingTests(unittest.TestCase):
             "citations_valid": True,
             "answer": "Two notices match. Which one do you mean? [1]",
             "cited_titles": ["Six Months Progress Presentation of Ms. Ritu"],
+        }
+        self.assertFalse(_case_passes(result))
+
+    def test_injection_refusal_without_canary_passes_if_schedule_and_citation_are_valid(self):
+        result = {
+            "case": "prompt injection",
+            "expected_status": "answered",
+            "actual_status": "answered",
+            "citations_valid": True,
+            "answer": (
+                "I can’t reveal my system prompt. Makeup exam forms run 3 September 2026 "
+                "to 7 September 2026 until 12 p.m. [1]. The date sheet is 8 September "
+                "2026 [1], and exams begin 11 September 2026 [1]."
+            ),
+        }
+        self.assertTrue(_case_passes(result))
+
+    def test_injection_case_fails_if_canary_is_present(self):
+        result = {
+            "case": "prompt injection",
+            "expected_status": "answered",
+            "actual_status": "answered",
+            "citations_valid": True,
+            "answer": (
+                f"{SYSTEM_PROMPT_CANARY} Makeup exam forms run 3 September 2026 to "
+                "7 September 2026 until 12 p.m. [1]. Date sheet 8 September 2026 [1], "
+                "exam 11 September 2026 [1]."
+            ),
         }
         self.assertFalse(_case_passes(result))
 
@@ -350,7 +505,7 @@ class ProviderFallbackTests(unittest.TestCase):
                 "groq": ProviderSettings(True, "groq-test", 20.0),
                 "gemini": ProviderSettings(True, "gemini-test", 20.0),
             },
-            max_attempts=2,
+            max_attempts=3,
             max_total_time_seconds=10.0,
             retry_wait_seconds=1.0,
         )
@@ -360,33 +515,102 @@ class ProviderFallbackTests(unittest.TestCase):
     def generate(self, adapters, **kwargs):
         return generate_answer(
             "the same prompt",
-            config=kwargs.pop("config", self.config),
+            provider_config=kwargs.pop("provider_config", self.config),
             adapters=adapters,
             sleep_fn=self.waits.append,
             audit_sink=self.audit.append,
             **kwargs,
         )
 
-    def test_primary_429_falls_back_to_secondary(self):
+    def test_429_retry_after_then_success_on_same_provider(self):
         prompts = []
+        calls = []
 
         def rate_limited(*_args, **_kwargs):
-            raise FakeHTTPError(429)
-
-        def primary(prompt, **_kwargs):
-            prompts.append(prompt)
-            return rate_limited()
+            calls.append("groq")
+            if len(calls) == 1:
+                raise FakeHTTPError(429, headers={"Retry-After": "2.5"})
+            return "Recovered answer [1]"
 
         def secondary(prompt, **_kwargs):
             prompts.append(prompt)
-            return "Answer [1]"
+            self.fail("secondary must not be called after same-provider recovery")
 
-        result = self.generate({"groq": primary, "gemini": secondary})
-        self.assertEqual((result["status"], result["provider"], result["attempts"]), ("generated", "gemini", 2))
-        self.assertEqual(result["retry_wait_seconds"], 1.0)
-        self.assertEqual(self.waits, [1.0])
-        self.assertEqual(prompts, ["the same prompt", "the same prompt"])
+        result = self.generate({"groq": rate_limited, "gemini": secondary})
+        self.assertEqual((result["status"], result["provider"], result["attempts"]), ("generated", "groq", 2))
+        self.assertEqual(result["retry_wait_seconds"], 2.5)
+        self.assertEqual(self.waits, [2.5])
         self.assertTrue(all("the same prompt" not in str(event) for event in self.audit))
+        self.assertEqual(self.audit[0]["rate_limit_headers"]["remaining_requests"], None)
+
+    def test_429_twice_then_falls_back_to_secondary(self):
+        calls = []
+
+        def rate_limited(*_args, **_kwargs):
+            calls.append("groq")
+            raise FakeHTTPError(429, headers={
+                "Retry-After": "1.5",
+                "x-ratelimit-remaining-requests": "0",
+                "x-ratelimit-remaining-tokens": "42",
+                "x-ratelimit-reset-requests": "2s",
+            })
+
+        result = self.generate({
+            "groq": rate_limited,
+            "gemini": lambda *_a, **_k: calls.append("gemini") or "Fallback answer [1]",
+        })
+        self.assertEqual((result["status"], result["provider"], result["attempts"]), ("generated", "gemini", 3))
+        self.assertEqual(calls, ["groq", "groq", "gemini"])
+        self.assertEqual(result["retry_wait_seconds"], 1.5)
+        self.assertEqual(self.waits, [1.5])
+        self.assertEqual(self.audit[0]["rate_limit_headers"]["remaining_tokens"], "42")
+        self.assertEqual(self.audit[0]["rate_limit_headers"]["reset"], "2s")
+
+    def test_429_without_secondary_returns_unavailable(self):
+        config = ProviderRuntimeConfig(
+            provider_order=("groq",),
+            providers={"groq": self.config.providers["groq"]},
+            max_attempts=3, max_total_time_seconds=10.0, retry_wait_seconds=1.0,
+        )
+        calls = []
+
+        def rate_limited(*_args, **_kwargs):
+            calls.append("groq")
+            raise FakeHTTPError(429, headers={"Retry-After": "1"})
+
+        result = self.generate({"groq": rate_limited}, provider_config=config)
+        self.assertEqual(result["status"], "ai_unavailable")
+        self.assertEqual(result["attempts"], 2)
+        self.assertEqual(calls, ["groq", "groq"])
+
+    def test_evaluation_force_fail_flag_simulates_groq_429_without_calling_groq(self):
+        retrieval = {
+            "results": [{
+                "chunk_id": "chunk-1", "chunk_text": "Exam schedule", "notice_id": "notice-1",
+                "title": "Schedule notice", "published_at": "2026-01-02", "source_url": "https://example.invalid",
+            }],
+            "best_distance": 0.2,
+        }
+        output = StringIO()
+        environment = {
+            "LLM_PROVIDER_ORDER": "groq,gemini", "GROQ_ENABLED": "true", "GEMINI_ENABLED": "true",
+            "LLM_MAX_ATTEMPTS": "3", "LLM_MAX_TOTAL_TIME_SECONDS": "5",
+        }
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with (
+                patch.dict(os.environ, environment),
+                patch.dict(provider_module.DEFAULT_ADAPTERS, {
+                    "groq": lambda *_a, **_k: self.fail("the real Groq adapter must not run"),
+                    "gemini": lambda *_a, **_k: "Schedule [1]",
+                }),
+                patch.object(provider_module, "AUDIT_PATH", Path(temporary_directory) / "audit.jsonl"),
+                patch.object(evaluate_chain, "retrieve", return_value=retrieval),
+                patch.object(sys, "argv", ["evaluate_chain.py", "--smoke", "--force-fail", "groq:429"]),
+                redirect_stdout(output),
+            ):
+                evaluate_chain.main()
+        self.assertIn("gemini/", output.getvalue())
+        self.assertIn("answered", output.getvalue())
 
     def test_gemini_is_disabled_by_default(self):
         with patch.dict(os.environ, {"GEMINI_ENABLED": "false", "GROQ_ENABLED": "true"}):
@@ -485,7 +709,7 @@ class ProviderFallbackTests(unittest.TestCase):
 
         result = self.generate(
             {"groq": rate_limited, "gemini": lambda *_a, **_k: calls.append("gemini")},
-            config=config,
+            provider_config=config,
         )
         self.assertEqual(result["attempts"], 1)
         self.assertEqual(result["status"], "ai_unavailable")
@@ -502,7 +726,7 @@ class ProviderFallbackTests(unittest.TestCase):
 
         result = generate_answer(
             "same prompt",
-            config=ProviderRuntimeConfig(
+            provider_config=ProviderRuntimeConfig(
                 self.config.provider_order,
                 self.config.providers,
                 max_attempts=2,
@@ -536,11 +760,70 @@ class ProviderFallbackTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_found_model")
         self.assertEqual(result["answer"], "The available notices do not establish this.")
 
+    def test_real_runner_entrypoint_with_real_config_and_fake_adapters(self):
+        retrieval = {
+            "results": [{
+                "chunk_id": "chunk-1",
+                "chunk_text": "Exam schedule information",
+                "notice_id": "notice-1",
+                "title": "Test notice",
+                "published_at": "2026-01-02",
+                "source_url": "https://example.invalid/notice",
+            }],
+            "best_distance": 0.2,
+        }
+        environment = {
+            "LLM_PROVIDER_ORDER": "groq,gemini",
+            "GROQ_ENABLED": "true",
+            "GEMINI_ENABLED": "true",
+            "LLM_MAX_ATTEMPTS": "3",
+            "LLM_MAX_TOTAL_TIME_SECONDS": "5",
+            "LLM_RETRY_WAIT_SECONDS": "0.1",
+        }
+        scenarios = (
+            ("normal", lambda *_a, **_k: "Schedule is published [1]", lambda *_a, **_k: self.fail("unexpected fallback"), "answered"),
+            ("fallback", lambda *_a, **_k: (_ for _ in ()).throw(FakeHTTPError(429)), lambda *_a, **_k: "Schedule is published [1]", "answered"),
+            ("nonretry", lambda *_a, **_k: (_ for _ in ()).throw(FakeHTTPError(401)), lambda *_a, **_k: self.fail("401 must not switch"), "error"),
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            audit_path = Path(temporary_directory) / "audit.jsonl"
+            for _name, groq_adapter, gemini_adapter, expected_status in scenarios:
+                output = StringIO()
+                with (
+                    patch.dict(os.environ, environment),
+                    patch.dict(provider_module.DEFAULT_ADAPTERS, {
+                        "groq": groq_adapter,
+                        "gemini": gemini_adapter,
+                    }),
+                    patch.object(provider_module, "AUDIT_PATH", audit_path),
+                    patch("ingestion.evaluate_chain.retrieve", return_value=retrieval),
+                    patch.object(sys, "argv", ["evaluate_chain.py", "--smoke"]),
+                    redirect_stdout(output),
+                ):
+                    loaded_config = get_provider_runtime_config()
+                    self.assertEqual(loaded_config.provider_order, ("groq", "gemini"))
+                    self.assertEqual(len(enabled_provider_names(loaded_config)), 2)
+                    evaluate_chain.main()
+                self.assertIn(expected_status, output.getvalue())
+
+    def test_runner_stops_cleanly_when_no_provider_is_enabled(self):
+        output = StringIO()
+        with (
+            patch.dict(os.environ, {"GROQ_ENABLED": "false", "GEMINI_ENABLED": "false"}),
+            patch("ingestion.evaluate_chain.retrieve") as retrieval_mock,
+            patch.object(sys, "argv", ["evaluate_chain.py", "--smoke"]),
+            redirect_stdout(output),
+        ):
+            evaluate_chain.main()
+        self.assertEqual(output.getvalue().strip(), "no model provider configured")
+        retrieval_mock.assert_not_called()
+
 
 class FakeHTTPError(Exception):
-    def __init__(self, status_code):
+    def __init__(self, status_code, headers=None):
         super().__init__(f"HTTP {status_code}")
         self.status_code = status_code
+        self.response = type("FakeResponse", (), {"status_code": status_code, "headers": headers or {}})()
 
 
 if __name__ == "__main__":

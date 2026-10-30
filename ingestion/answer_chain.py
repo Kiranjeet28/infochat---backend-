@@ -19,12 +19,14 @@ from ingestion.chat_model import (
 )
 from ingestion.answer_config import (
     FRIENDLY_NOT_FOUND_MESSAGE,
+    FRIENDLY_INVALID_CITATION_MESSAGE,
     MODEL_INPUT_EXCLUDED_CATEGORIES,
     MODEL_INPUT_EXCLUDED_NOTICE_IDS,
     MODEL_INPUT_EXCLUDED_TITLE_MARKERS,
 )
 from ingestion.langchain_retriever import NoticeRetriever
 from ingestion.prompt import NOTICE_ANSWER_PROMPT
+from ingestion.provider_config import ProviderRuntimeConfig
 
 
 def format_evidence(documents: Sequence[Document]) -> str:
@@ -94,27 +96,31 @@ def normalize_answer(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+_CITATION_TOKEN_PATTERN = re.compile(
+    r"\[(?:[0-9]+(?:\s*,\s*[0-9]+)?|[0-9]+\s*-\s*[0-9]+)\]"
+)
+
+
+def citation_tokens(text: str) -> list[str]:
+    """Return only bracket tokens in the supported numeric citation forms."""
+    return [match.group(0) for match in _CITATION_TOKEN_PATTERN.finditer(text)]
+
+
 def extract_citations(text: str) -> tuple[list[int], bool]:
-    """Return citations, expanding ranges such as [1-3], and syntax validity."""
+    """Return citation indexes; unrelated bracketed text is ignored."""
     citations: list[int] = []
     syntax_valid = True
-    for group in re.findall(r"\[([^\[\]]*)\]", text):
-        parts = [value.strip() for value in group.split(",")]
-        if not group.strip() or any(not part for part in parts):
-            if re.search(r"\d", group):
+    for token in citation_tokens(text):
+        group = token[1:-1]
+        if "-" in group:
+            start_text, end_text = (part.strip() for part in group.split("-", 1))
+            start, end = int(start_text), int(end_text)
+            if end < start:
                 syntax_valid = False
-            continue
-        for part in parts:
-            match = re.fullmatch(r"(\d+)(?:\s*-\s*(\d+))?", part)
-            if match:
-                start = int(match.group(1))
-                end = int(match.group(2) or start)
-                if end < start:
-                    syntax_valid = False
-                else:
-                    citations.extend(range(start, end + 1))
-            elif re.search(r"\d", part) or part.lower() == "n":
-                syntax_valid = False
+            else:
+                citations.extend(range(start, end + 1))
+        else:
+            citations.extend(int(part.strip()) for part in group.split(","))
     return citations, syntax_valid
 
 
@@ -141,7 +147,7 @@ def _validate_answer(values: dict[str, Any]) -> dict[str, Any]:
         1 <= number <= len(documents) for number in citations
     )
     return {
-        "answer": answer if valid else "not found",
+        "answer": answer if valid else FRIENDLY_INVALID_CITATION_MESSAGE,
         "sources": sources,
         "status": "answered" if valid else "invalid_citation",
         "citations_valid": valid,
@@ -201,11 +207,14 @@ def build_answer_chain(
     retriever: NoticeRetriever | None = None,
     *,
     answer_generator: Callable[[Any], dict[str, Any]] | None = None,
+    provider_config: ProviderRuntimeConfig | None = None,
     raw_output_callback: Callable[[Any], None] | None = None,
 ) -> Runnable:
     """Build the question → retrieval → evidence → prompt → model → text chain."""
     selected_retriever = retriever or NoticeRetriever()
-    selected_generator = answer_generator or generate_answer
+    selected_generator = answer_generator or (
+        lambda prompt: generate_answer(prompt, provider_config=provider_config)
+    )
 
     prepared = (
         {
