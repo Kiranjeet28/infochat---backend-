@@ -45,7 +45,7 @@ def _notice_row(notice: dict[str, Any]) -> dict[str, Any] | None:
         "review_status": notice.get("review_status") or "needs_review",
         "extraction_confidence": notice.get("extraction_confidence"),
         "supersedes_id": notice.get("supersedes_id"),
-        "superseded_by": notice.get("superseded_by"),
+        "superseded_by": notice.get("superseded_by") or None,
         "text": notice.get("text"),
     }
     if row["fetched_at"] is None:

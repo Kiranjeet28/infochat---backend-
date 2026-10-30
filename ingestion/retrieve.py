@@ -9,13 +9,15 @@ from typing import Any
 import requests
 from dotenv import load_dotenv
 from ingestion.embedding_config import EMBEDDING_MODEL, create_embedding_model
+from ingestion.retrieval_config import (
+    RRF_K,
+    SIMILARITY_DISTANCE_CUTOFF,
+    TOP_K,
+)
 
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-TOP_K = 5
-RRF_K = 60
-SIMILARITY_DISTANCE_CUTOFF = 0.65
 REQUEST_TIMEOUT_SECONDS = 30
 
 _embedding_model: Any | None = None
