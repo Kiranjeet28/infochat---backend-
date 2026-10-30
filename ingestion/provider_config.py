@@ -93,3 +93,13 @@ def enabled_provider_names(config: ProviderRuntimeConfig) -> tuple[str, ...]:
         name for name in config.provider_order
         if name in config.providers and config.providers[name].enabled
     )
+
+
+def require_enabled_provider_config(
+    config: ProviderRuntimeConfig | None = None,
+) -> ProviderRuntimeConfig:
+    """Load and validate server model configuration before serving requests."""
+    selected = config or get_provider_runtime_config()
+    if not enabled_provider_names(selected):
+        raise RuntimeError("no model provider configured")
+    return selected

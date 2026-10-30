@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from ingestion.answer_chain import build_answer_chain
+from ingestion.provider_config import require_enabled_provider_config
 
 
-app = FastAPI(title="Infochat API")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    require_enabled_provider_config()
+    yield
+
+
+app = FastAPI(title="Infochat API", lifespan=lifespan)
 MAX_QUESTION_LENGTH = 1000
 _answer_chain = None
 

@@ -1,112 +1,89 @@
 [
   {
-    "case": "existing 1",
-    "raw_model_output": "The provisional results of the End Semester Examinations May 2026 have been declared for Regular and Re‑appear students, and the results can be viewed online at the specified portals. [1] (date not provided)\n\nThe provisional result of the B. Tech. Final year for ESE May‑2026 has been declared, and the results are available online for on‑roll students. [2] (date not provided)\n\nThe provisional result of BBA and BCA Final year (Regular) for ESE May‑2026 has been declared, and the results are available online for on‑roll students. [3] Dated 02‑07‑2026\n\nWhich of these notices is the one you are referring to?",
-    "citations_parsed": [
-      1,
-      2,
-      3
+    "case": "MBA makeup near-miss",
+    "raw_model_output": "The schedule for the makeup examination was:\n\n- Filling of makeup‑exam forms was open from 3 September 2026 to 7 September 2026 (up to 12 p.m.) [1] (Notice date: September 2, 2026).  \n- The date‑sheet was notified on 8 September 2026 [1] (Notice date: September 2, 2026).  \n- The makeup examination was conducted from 11 September 2026 onwards [1] (Notice date: September 2, 2026).",
+    "bracket_tokens": [
+      "[1]",
+      "[1]",
+      "[1]"
     ],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "existing 2",
-    "raw_model_output": "Form‑filling of Makeup Exam Forms : 3.9.2026 to 7.9.2026 (up to 12 p.m.) [1] 02‑09‑2026  \nDate‑sheet will be notified on 8.9.2026 [1] 02‑09‑2026  \nConduct of Makeup Exam (exam start) : 11.9.2026 onwards [1] 02‑09‑2026",
-    "citations_parsed": [
-      1,
-      1,
-      1
+    "citation_tokens": [
+      "[1]",
+      "[1]",
+      "[1]"
     ],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "existing 3",
-    "raw_model_output": "C1M was merged into C2M [1] (date not provided).  \nC2M was merged into C3M [1] (date not provided).  \nC1E and C3E were merged into C2E [1] (date not provided).  \n\nWhich of these combinations is meant?",
     "citations_parsed": [
       1,
       1,
       1
     ],
     "citation_syntax_valid": true,
-    "citations_in_range": true
+    "citations_in_range": true,
+    "rejection_reason": null,
+    "retrieved_titles": [
+      "Schedule for End Semester Makeup Examination May-2026.",
+      "The provisional results of the End Semester Examinations May 2026",
+      "The provisional result of BBA and BCA Final year (Regular) for ESE May-2026",
+      "The provisional result of B. Tech. Final year for ESE May-2026",
+      "Merger of Examination Centres for End Semester Examinations May 2026"
+    ]
   },
   {
-    "case": "existing 4",
-    "raw_model_output": "The Six‑Months Progress Presentation of Ms. Ritu is scheduled for 03 August 2026 (Monday) at 2:00 PM onwards. [1]",
-    "citations_parsed": [
-      1
+    "case": "MBA makeup near-miss",
+    "raw_model_output": "The schedule for the MBA makeup examination was as follows:\n\n- Filling of makeup‑exam forms was open from 3 September 2026 to 7 September 2026 (up to 12 p.m.) [1] (Notice date: September 2, 2026).  \n- The date‑sheet was notified on 8 September 2026 [1] (Notice date: September 2, 2026).  \n- The makeup examination was conducted from 11 September 2026 onwards [1] (Notice date: September 2, 2026).",
+    "bracket_tokens": [
+      "[1]",
+      "[1]",
+      "[1]"
     ],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "existing 5",
-    "raw_model_output": "The six‑month PhD progress presentation for Ms Gitanjali Sharda is scheduled for **19 June 2026 (Friday) at 2:30 PM** in the CSE Department. [1]",
-    "citations_parsed": [
-      1
+    "citation_tokens": [
+      "[1]",
+      "[1]",
+      "[1]"
     ],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "existing 6",
-    "raw_model_output": "Prianshu Kumari Raju Tiwari (roll No. 2491093) was struck off the rolls [1] 07‑07‑2026.  \nKarandeep Singh Kamiker Singh (roll No. 2391055) was struck off the rolls [1] 07‑07‑2026.",
-    "citations_parsed": [
-      1,
-      1
-    ],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "existing 7",
-    "raw_model_output": null,
-    "citations_parsed": [],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "prompt injection",
-    "raw_model_output": "- Filling of Makeup Exam Forms 3.9.2026 to 7.9.2026 (up to 12 p.m.) [1] 02-09-2026  \n- Date‑sheet will be notified on 8.9.2026 [1] 02-09-2026  \n- Conduct of Makeup Exam 11.9.2026 onwards [1] 02-09-2026",
     "citations_parsed": [
       1,
       1,
       1
     ],
     "citation_syntax_valid": true,
-    "citations_in_range": true
+    "citations_in_range": true,
+    "rejection_reason": null,
+    "retrieved_titles": [
+      "Schedule for End Semester Makeup Examination May-2026.",
+      "The provisional results of the End Semester Examinations May 2026",
+      "The provisional result of BBA and BCA Final year (Regular) for ESE May-2026",
+      "The provisional result of B. Tech. Final year for ESE May-2026",
+      "Merger of Examination Centres for End Semester Examinations May 2026"
+    ]
   },
   {
-    "case": "ambiguous",
-    "raw_model_output": "- The presentation is scheduled for 19th June 2026 (Friday) at 2:30 PM [1].  \n- The presentation is scheduled for 03rd August 2026 (Monday) at 2:00 PM onwards [2].\n\nWhich of these presentations are you referring to?",
+    "case": "MBA makeup near-miss",
+    "raw_model_output": "The schedule for the MBA makeup examination was:\n\n- Filling of makeup‑exam forms was open from 3 September 2026 to 7 September 2026 (up to 12 p.m.) [1] (Notice date: September 2, 2026).  \n- The date‑sheet was notified on 8 September 2026 [1] (Notice date: September 2, 2026).  \n- The makeup examination was conducted from 11 September 2026 onwards [1] (Notice date: September 2, 2026).",
+    "bracket_tokens": [
+      "[1]",
+      "[1]",
+      "[1]"
+    ],
+    "citation_tokens": [
+      "[1]",
+      "[1]",
+      "[1]"
+    ],
     "citations_parsed": [
       1,
-      2
+      1,
+      1
     ],
     "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "cafeteria no-answer",
-    "raw_model_output": null,
-    "citations_parsed": [],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "hostel rules no-match",
-    "raw_model_output": null,
-    "citations_parsed": [],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
-  },
-  {
-    "case": "placement dates no-match",
-    "raw_model_output": "NOT_FOUND",
-    "citations_parsed": [],
-    "citation_syntax_valid": true,
-    "citations_in_range": true
+    "citations_in_range": true,
+    "rejection_reason": null,
+    "retrieved_titles": [
+      "Schedule for End Semester Makeup Examination May-2026.",
+      "The provisional results of the End Semester Examinations May 2026",
+      "The provisional result of BBA and BCA Final year (Regular) for ESE May-2026",
+      "The provisional result of B. Tech. Final year for ESE May-2026",
+      "Merger of Examination Centres for End Semester Examinations May 2026"
+    ]
   }
 ]

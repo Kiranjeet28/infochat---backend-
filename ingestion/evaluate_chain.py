@@ -496,7 +496,11 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
     for case_name, rows in grouped.items():
         passes = sum(row.get("pass/fail") == "pass" for row in rows)
         statuses = list(dict.fromkeys(str(row.get("actual_status")) for row in rows))
-        print(f"| {_render_cell(case_name)} | {passes} | {len(rows)} | {_render_cell(statuses)} |")
+        stability = "stable" if len(statuses) == 1 else "unstable"
+        print(
+            f"| {_render_cell(case_name)} | {passes} | {len(rows)} | "
+            f"{_render_cell(statuses)} ({stability}) |"
+        )
 
 
 def main() -> None:
