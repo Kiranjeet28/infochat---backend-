@@ -40,6 +40,7 @@ class NoticeRetriever(BaseRetriever):
                     "title",
                     "published_at",
                     "source_url",
+                    "category",
                     "chunk_id",
                     "department",
                     "semester",

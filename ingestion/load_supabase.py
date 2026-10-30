@@ -82,6 +82,15 @@ def read_notice_rows(data_dir: Path = DATA_DIR) -> tuple[list[dict[str, Any]], i
     return rows, ignored_unhashed, ignored_duplicate_files
 
 
+def notices_missing_published_at(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Return identifiers and titles for rows without an explicit publication date."""
+    return [
+        {"notice_id": str(row.get("notice_id") or "unknown"), "title": str(row.get("title") or "Untitled notice")}
+        for row in rows
+        if not str(row.get("published_at") or "").strip()
+    ]
+
+
 def _fetch_existing_notices(
     session: requests.Session, endpoint: str, headers: dict[str, str]
 ) -> tuple[dict[str, str], set[str]]:
@@ -123,6 +132,13 @@ def load_notices() -> tuple[int, int, int, int]:
         )
 
     rows, ignored_unhashed, ignored_duplicate_files = read_notice_rows()
+    missing_publication_dates = notices_missing_published_at(rows)
+    if missing_publication_dates:
+        print("Notices missing published_at (no dates inferred):")
+        for notice in missing_publication_dates:
+            print(f"- {notice['notice_id']}: {notice['title']}")
+    else:
+        print("All loaded notices have published_at.")
     endpoint = f"{project_url}/rest/v1/notices"
     headers = {
         "apikey": service_role_key,
