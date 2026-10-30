@@ -8,7 +8,6 @@ from datetime import date
 from unittest.mock import patch
 
 from langchain_core.documents import Document
-from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
 from ingestion.answer_chain import (
@@ -18,6 +17,7 @@ from ingestion.answer_chain import (
     format_evidence,
     normalize_answer,
 )
+from ingestion.chat_model import generate_answer
 from ingestion.evaluate_chain import (
     RESULT_COLUMNS,
     _append_debug_record,
@@ -28,6 +28,11 @@ from ingestion.evaluate_chain import (
 from ingestion.load_supabase import _notice_row, notices_missing_published_at
 from ingestion.retrieve import retrieve
 from ingestion.retrieval_config import SIMILARITY_DISTANCE_CUTOFF
+from ingestion.provider_config import (
+    ProviderRuntimeConfig,
+    ProviderSettings,
+    get_provider_runtime_config,
+)
 
 
 class FakeResponse:
@@ -156,7 +161,7 @@ class RetrievalAndRoutingTests(unittest.TestCase):
             (
                 "case", "question", "expected_status", "actual_status", "stage", "answer",
                 "cited_titles", "citations_valid", "best_distance", "latency", "error", "pass/fail",
-                "needs_manual_fact_check",
+                "needs_manual_fact_check", "fail_reason", "provider", "attempts", "retry_wait_seconds",
             ),
         )
 
@@ -182,11 +187,11 @@ class RetrievalAndRoutingTests(unittest.TestCase):
     def test_model_output_callback_captures_text_without_changing_chain_answer(self):
         captured = []
         document = Document(page_content="Notice text", metadata={"title": "Notice A"})
-        model = RunnableLambda(lambda _prompt: AIMessage(content="A fact [1]"))
+        generator = lambda _prompt: {"text": "A fact [1]", "status": "generated", "provider": "fake", "model": "fake-model", "attempts": 1, "latency_seconds": 0.01, "token_usage": None, "retry_wait_seconds": 0.0, "error_type": None}
         chain = build_answer_chain(
             retriever=RunnableLambda(lambda _question: [document]),
-            model=model,
-            raw_output_callback=lambda output: captured.append(output.content),
+            answer_generator=generator,
+            raw_output_callback=lambda output: captured.append(output),
         )
         result = chain.invoke({"question": "question"})
         self.assertEqual(captured, ["A fact [1]"])
@@ -195,10 +200,12 @@ class RetrievalAndRoutingTests(unittest.TestCase):
     def test_current_date_is_passed_into_the_prompt(self):
         prompts = []
         document = Document(page_content="Notice text", metadata={"title": "Notice A"})
-        model = RunnableLambda(lambda prompt: prompts.append(prompt.to_string()) or AIMessage(content="Fact [1]"))
+        def generator(prompt):
+            prompts.append(prompt.to_string())
+            return {"text": "Fact [1]", "status": "generated", "provider": "fake", "model": "fake-model", "attempts": 1, "latency_seconds": 0.01, "token_usage": None, "retry_wait_seconds": 0.0, "error_type": None}
         chain = build_answer_chain(
             retriever=RunnableLambda(lambda _question: [document]),
-            model=model,
+            answer_generator=generator,
         )
         chain.invoke({"question": "question"})
         self.assertIn(f"Current date: {date.today().isoformat()}", prompts[0])
@@ -266,7 +273,7 @@ class RetrievalAndRoutingTests(unittest.TestCase):
         })
         retrieval_refusal = build_answer_chain(
             retriever=RunnableLambda(lambda _question: []),
-            model=RunnableLambda(lambda _prompt: AIMessage(content="unused")),
+            answer_generator=lambda _prompt: self.fail("no evidence should skip generation"),
         ).invoke({"question": "no evidence"})
         self.assertEqual(model_refusal["answer"], retrieval_refusal["answer"])
         self.assertEqual(model_refusal["status"], "not_found_model")
@@ -311,10 +318,10 @@ class RetrievalAndRoutingTests(unittest.TestCase):
 
     def test_no_evidence_does_not_invoke_model(self):
         calls = []
-        model = RunnableLambda(lambda _prompt: calls.append(True) or AIMessage(content="unexpected [1]"))
+        generator = lambda _prompt: calls.append(True) or {"text": "unexpected [1]", "status": "generated"}
         chain = build_answer_chain(
             retriever=RunnableLambda(lambda _question: []),
-            model=model,
+            answer_generator=generator,
         )
         result = chain.invoke({"question": "no evidence"})
         self.assertEqual(result["status"], "not_found_retrieval")
@@ -333,6 +340,207 @@ class RetrievalAndRoutingTests(unittest.TestCase):
             notices_missing_published_at(rows),
             [{"notice_id": "n2", "title": "Undated"}],
         )
+
+
+class ProviderFallbackTests(unittest.TestCase):
+    def setUp(self):
+        self.config = ProviderRuntimeConfig(
+            provider_order=("groq", "gemini"),
+            providers={
+                "groq": ProviderSettings(True, "groq-test", 20.0),
+                "gemini": ProviderSettings(True, "gemini-test", 20.0),
+            },
+            max_attempts=2,
+            max_total_time_seconds=10.0,
+            retry_wait_seconds=1.0,
+        )
+        self.audit = []
+        self.waits = []
+
+    def generate(self, adapters, **kwargs):
+        return generate_answer(
+            "the same prompt",
+            config=kwargs.pop("config", self.config),
+            adapters=adapters,
+            sleep_fn=self.waits.append,
+            audit_sink=self.audit.append,
+            **kwargs,
+        )
+
+    def test_primary_429_falls_back_to_secondary(self):
+        prompts = []
+
+        def rate_limited(*_args, **_kwargs):
+            raise FakeHTTPError(429)
+
+        def primary(prompt, **_kwargs):
+            prompts.append(prompt)
+            return rate_limited()
+
+        def secondary(prompt, **_kwargs):
+            prompts.append(prompt)
+            return "Answer [1]"
+
+        result = self.generate({"groq": primary, "gemini": secondary})
+        self.assertEqual((result["status"], result["provider"], result["attempts"]), ("generated", "gemini", 2))
+        self.assertEqual(result["retry_wait_seconds"], 1.0)
+        self.assertEqual(self.waits, [1.0])
+        self.assertEqual(prompts, ["the same prompt", "the same prompt"])
+        self.assertTrue(all("the same prompt" not in str(event) for event in self.audit))
+
+    def test_gemini_is_disabled_by_default(self):
+        with patch.dict(os.environ, {"GEMINI_ENABLED": "false", "GROQ_ENABLED": "true"}):
+            config = get_provider_runtime_config()
+        self.assertEqual(config.provider_order, ("groq", "gemini"))
+        self.assertFalse(config.providers["gemini"].enabled)
+
+    def test_parsing_bug_is_not_retried(self):
+        calls = []
+
+        def parsing_bug(*_args, **_kwargs):
+            raise ValueError("bad provider response")
+
+        result = self.generate({
+            "groq": parsing_bug,
+            "gemini": lambda *_a, **_k: calls.append("gemini") or "Answer [1]",
+        })
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(calls, [])
+
+    def test_primary_401_stops_without_switching(self):
+        calls = []
+
+        def unauthorized(*_args, **_kwargs):
+            raise FakeHTTPError(401)
+
+        result = self.generate({
+            "groq": unauthorized,
+            "gemini": lambda *_a, **_k: calls.append("gemini") or "Answer [1]",
+        })
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["error_type"], "FakeHTTPError")
+        self.assertEqual(calls, [])
+
+    def test_primary_timeout_falls_back_to_secondary(self):
+        def timed_out(*_args, **_kwargs):
+            raise TimeoutError("timed out")
+
+        result = self.generate({"groq": timed_out, "gemini": lambda *_a, **_k: "Answer [1]"})
+        self.assertEqual(result["status"], "generated")
+        self.assertEqual(result["provider"], "gemini")
+        self.assertEqual(result["attempts"], 2)
+
+    def test_secondary_uncited_answer_is_invalid_citation(self):
+        document = Document(page_content="Evidence", metadata={"title": "Notice"})
+
+        def rate_limited(*_args, **_kwargs):
+            raise FakeHTTPError(429)
+
+        chain = build_answer_chain(
+            retriever=RunnableLambda(lambda _question: [document]),
+            answer_generator=lambda prompt: self.generate({
+                "groq": rate_limited,
+                "gemini": lambda *_a, **_k: "Answer without a citation",
+            }),
+        )
+        result = chain.invoke({"question": "question"})
+        self.assertEqual(result["status"], "invalid_citation")
+
+    def test_all_retryable_failures_return_ai_unavailable_and_notice_cards(self):
+        document = Document(
+            page_content="Evidence",
+            metadata={"title": "Notice", "published_at": "2026-01-01", "source_url": "https://example.invalid"},
+        )
+
+        def unavailable(status):
+            def fail(*_args, **_kwargs):
+                raise FakeHTTPError(status)
+            return fail
+
+        chain = build_answer_chain(
+            retriever=RunnableLambda(lambda _question: [document]),
+            answer_generator=lambda prompt: self.generate({
+                "groq": unavailable(503),
+                "gemini": unavailable(504),
+            }),
+        )
+        result = chain.invoke({"question": "question"})
+        self.assertEqual(result["status"], "ai_unavailable")
+        self.assertEqual(result["sources"][0]["title"], "Notice")
+        self.assertIn("temporarily unavailable", result["answer"])
+
+    def test_attempt_limit_is_respected(self):
+        calls = []
+        config = ProviderRuntimeConfig(
+            self.config.provider_order,
+            self.config.providers,
+            max_attempts=1,
+            max_total_time_seconds=10.0,
+            retry_wait_seconds=1.0,
+        )
+
+        def rate_limited(*_args, **_kwargs):
+            calls.append("groq")
+            raise FakeHTTPError(429)
+
+        result = self.generate(
+            {"groq": rate_limited, "gemini": lambda *_a, **_k: calls.append("gemini")},
+            config=config,
+        )
+        self.assertEqual(result["attempts"], 1)
+        self.assertEqual(result["status"], "ai_unavailable")
+        self.assertEqual(calls, ["groq"])
+
+    def test_total_time_limit_prevents_next_provider_call(self):
+        clock = [0.0]
+        calls = []
+
+        def rate_limited(*_args, **_kwargs):
+            calls.append("groq")
+            clock[0] += 0.6
+            raise FakeHTTPError(429)
+
+        result = generate_answer(
+            "same prompt",
+            config=ProviderRuntimeConfig(
+                self.config.provider_order,
+                self.config.providers,
+                max_attempts=2,
+                max_total_time_seconds=0.5,
+                retry_wait_seconds=1.0,
+            ),
+            adapters={"groq": rate_limited, "gemini": lambda *_a, **_k: calls.append("gemini")},
+            sleep_fn=self.waits.append,
+            clock_fn=lambda: clock[0],
+            audit_sink=self.audit.append,
+        )
+        self.assertEqual(result["status"], "ai_unavailable")
+        self.assertEqual(result["attempts"], 1)
+        self.assertEqual(calls, ["groq"])
+        self.assertEqual(self.waits, [])
+
+    def test_not_found_from_secondary_is_accepted(self):
+        document = Document(page_content="Evidence", metadata={"title": "Notice"})
+
+        def rate_limited(*_args, **_kwargs):
+            raise FakeHTTPError(429)
+
+        chain = build_answer_chain(
+            retriever=RunnableLambda(lambda _question: [document]),
+            answer_generator=lambda prompt: self.generate({
+                "groq": rate_limited,
+                "gemini": lambda *_a, **_k: "NOT_FOUND",
+            }),
+        )
+        result = chain.invoke({"question": "question"})
+        self.assertEqual(result["status"], "not_found_model")
+        self.assertEqual(result["answer"], "The available notices do not establish this.")
+
+
+class FakeHTTPError(Exception):
+    def __init__(self, status_code):
+        super().__init__(f"HTTP {status_code}")
+        self.status_code = status_code
 
 
 if __name__ == "__main__":

@@ -10,10 +10,13 @@ import unicodedata
 from typing import Any, Callable
 
 from langchain_core.documents import Document
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable, RunnableBranch, RunnableLambda, RunnablePassthrough
 
-from ingestion.chat_model import create_chat_model
+from ingestion.chat_model import (
+    AI_ERROR_MESSAGE,
+    AI_UNAVAILABLE_MESSAGE,
+    generate_answer,
+)
 from ingestion.answer_config import (
     FRIENDLY_NOT_FOUND_MESSAGE,
     MODEL_INPUT_EXCLUDED_CATEGORIES,
@@ -145,24 +148,64 @@ def _validate_answer(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validate_generation(values: dict[str, Any]) -> dict[str, Any]:
+    """Validate provider text and attach generation diagnostics to the result."""
+    generation: dict[str, Any] = values["generation"]
+    documents: Sequence[Document] = values["documents"]
+    status = generation.get("status")
+    if status == "generated":
+        validated = _validate_answer({"documents": documents, "answer": generation.get("text", "")})
+    else:
+        sources = [
+            {
+                key: document.metadata.get(key)
+                for key in ("notice_id", "title", "published_at", "source_url")
+            }
+            for document in documents
+        ]
+        validated = {
+            "answer": AI_UNAVAILABLE_MESSAGE if status == "ai_unavailable" else AI_ERROR_MESSAGE,
+            "sources": sources,
+            "status": status or "error",
+            "citations_valid": None,
+        }
+    return {
+        **validated,
+        **{
+            key: generation.get(key)
+            for key in (
+                "provider", "model", "latency_seconds", "token_usage", "attempts",
+                "retry_wait_seconds", "error_type",
+            )
+        },
+    }
+
+
 def _no_evidence(values: dict[str, Any]) -> dict[str, Any]:
     return {
         "answer": FRIENDLY_NOT_FOUND_MESSAGE,
         "sources": [],
         "status": "not_found_retrieval",
         "citations_valid": None,
+        "provider": None,
+        "model": None,
+        "latency_seconds": 0.0,
+        "token_usage": None,
+        "attempts": 0,
+        "retry_wait_seconds": 0.0,
+        "error_type": None,
     }
 
 
 def build_answer_chain(
     retriever: NoticeRetriever | None = None,
-    model: Runnable | None = None,
     *,
+    answer_generator: Callable[[Any], dict[str, Any]] | None = None,
     raw_output_callback: Callable[[Any], None] | None = None,
 ) -> Runnable:
     """Build the question → retrieval → evidence → prompt → model → text chain."""
     selected_retriever = retriever or NoticeRetriever()
-    selected_model = model or create_chat_model()
+    selected_generator = answer_generator or generate_answer
 
     prepared = (
         {
@@ -174,22 +217,14 @@ def build_answer_chain(
             evidence=RunnableLambda(lambda values: format_evidence(values["documents"]))
         )
     )
-    model_chain: Runnable = selected_model
+    generation = NOTICE_ANSWER_PROMPT | RunnableLambda(selected_generator)
     if raw_output_callback is not None:
-        model_chain = model_chain | RunnableLambda(
-            lambda output: (raw_output_callback(output), output)[1]
+        generation = generation | RunnableLambda(
+            lambda result: (raw_output_callback(result.get("text")), result)[1]
         )
-    parsed_answer = (
-        NOTICE_ANSWER_PROMPT
-        | model_chain
-        | StrOutputParser()
-        | RunnableLambda(normalize_answer)
-    )
     answer = (
-        RunnablePassthrough.assign(
-            answer=parsed_answer
-        )
-        | RunnableLambda(_validate_answer)
+        RunnablePassthrough.assign(generation=generation)
+        | RunnableLambda(_validate_generation)
     )
     return prepared | RunnableBranch(
         (lambda values: not values["documents"], RunnableLambda(_no_evidence)),

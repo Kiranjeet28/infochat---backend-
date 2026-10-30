@@ -6,6 +6,7 @@ pdfplumber
 langchain-text-splitters
 langchain-core
 langchain-groq
+langchain-google-genai
 fastapi
 uvicorn[standard]
 tiktoken

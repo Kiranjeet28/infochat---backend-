@@ -20,7 +20,6 @@ from langchain_core.runnables import RunnableLambda
 
 from ingestion.answer_config import FRIENDLY_NOT_FOUND_MESSAGE
 from ingestion.answer_chain import build_answer_chain, extract_citations, normalize_answer
-from ingestion.chat_model import GROQ_MODEL, create_chat_model
 from ingestion.prompt import SYSTEM_PROMPT
 from ingestion.retrieve import retrieve
 from ingestion.test_search import TESTS
@@ -81,7 +80,7 @@ def _document(row: dict[str, Any]) -> Document:
 
 def _safe_error(error: Exception) -> dict[str, Any]:
     message = str(error)
-    for secret_name in ("GROQ_API_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
+    for secret_name in ("GROQ_API_KEY", "GEMINI_API_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
         secret = os.environ.get(secret_name)
         if secret:
             message = message.replace(secret, "[REDACTED]")
@@ -114,14 +113,6 @@ def _safe_error(error: Exception) -> dict[str, Any]:
     }
 
 
-def _is_retryable(error: Exception) -> bool:
-    status_code = getattr(error, "status_code", None)
-    response = getattr(error, "response", None)
-    if status_code is None:
-        status_code = getattr(response, "status_code", None)
-    return status_code == 429 or "timeout" in type(error).__name__.lower()
-
-
 def _model_output_text(output: Any) -> str:
     content = getattr(output, "content", output)
     if isinstance(content, str):
@@ -136,7 +127,7 @@ def _model_output_text(output: Any) -> str:
 
 def _safe_debug_text(text: str) -> str:
     """Redact credentials and any verbatim system-prompt lines from model output."""
-    for secret_name in ("GROQ_API_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
+    for secret_name in ("GROQ_API_KEY", "GEMINI_API_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
         secret = os.environ.get(secret_name)
         if secret:
             text = text.replace(secret, "[REDACTED]")
@@ -202,8 +193,13 @@ def _run_case(
                 "latency": round(time.perf_counter() - started, 3),
                 "error": None,
                 "needs_manual_fact_check": "no",
+                "fail_reason": None,
+                "provider": None,
+                "attempts": 0,
+                "retry_wait_seconds": 0.0,
             }
             result["pass/fail"] = "pass" if test["expected_status"] == "not_found" else "fail"
+            result["fail_reason"] = None if result["pass/fail"] == "pass" else "retrieval returned no chunks"
             return result
 
         sources = [
@@ -214,11 +210,12 @@ def _run_case(
         fixed_retriever = RunnableLambda(lambda _question: documents)
         chain = build_answer_chain(
             retriever=fixed_retriever,
-            model=create_chat_model(),
-            raw_output_callback=lambda output: raw_model_output.append(_model_output_text(output)),
+            raw_output_callback=lambda output: raw_model_output.append(_model_output_text(output)) if output is not None else None,
         )
         result = chain.invoke({"question": test["question"]})
         stage = "validation"
+        if result.get("status") in {"error", "ai_unavailable"}:
+            stage = "provider"
         answer = normalize_answer(result["answer"])
         citations, syntax_valid = extract_citations(answer)
         citations_valid = result.get("citations_valid")
@@ -245,9 +242,15 @@ def _run_case(
             "citations_valid": citations_valid,
             "best_distance": best_distance,
             "latency": round(time.perf_counter() - started, 3),
-            "error": None,
+            "error": {"exception_type": result.get("error_type")} if result.get("error_type") else None,
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+            "attempts": result.get("attempts", 0),
+            "retry_wait_seconds": result.get("retry_wait_seconds", 0.0),
         }
-        result_row["pass/fail"] = "pass" if _case_passes(result_row) else "fail"
+        passed = _case_passes(result_row)
+        result_row["pass/fail"] = "pass" if passed else "fail"
+        result_row["fail_reason"] = _fail_reason(result_row, result.get("error_type"))
         result_row["needs_manual_fact_check"] = "yes"
         _append_debug_record(
             debug_records,
@@ -275,8 +278,12 @@ def _run_case(
             "error": _safe_error(error),
             "pass/fail": "fail",
             "needs_manual_fact_check": "yes" if sources else "no",
+            "fail_reason": _safe_error(error)["exception_type"],
+            "provider": None,
+            "model": None,
+            "attempts": 0,
+            "retry_wait_seconds": 0.0,
         }
-        failure["model"] = GROQ_MODEL if stage == "model" else None
         return failure
 
 
@@ -309,10 +316,29 @@ def _case_passes(result: dict[str, Any]) -> bool:
     return True
 
 
+def _fail_reason(result: dict[str, Any], error_type: str | None) -> str | None:
+    if result.get("pass/fail") == "pass":
+        return None
+    status = result.get("actual_status")
+    if status == "invalid_citation":
+        return "citation check failed"
+    if status == "ai_unavailable":
+        return error_type or "all provider attempts failed or time limit expired"
+    if status == "error":
+        return error_type or "non-retryable provider or answer-generation error"
+    if error_type:
+        return error_type
+    if result.get("case") == "ambiguous":
+        return "answer must cite both presentation notices"
+    if result.get("case") == "prompt injection":
+        return "injection case did not return the expected makeup schedule safely"
+    return "actual status or answer behavior did not match expectation"
+
+
 RESULT_COLUMNS = (
     "case", "question", "expected_status", "actual_status", "stage", "answer",
     "cited_titles", "citations_valid", "best_distance", "latency", "error", "pass/fail",
-    "needs_manual_fact_check",
+    "needs_manual_fact_check", "fail_reason", "provider", "attempts", "retry_wait_seconds",
 )
 
 
@@ -366,7 +392,7 @@ def main() -> None:
     mode.add_argument(
         "--all",
         action="store_true",
-        help="run all 12 evaluation cases (also the default when no flag is given)",
+        help="run all 17 evaluation cases (also the default when no flag is given)",
     )
     parser.add_argument(
         "--debug-raw",
@@ -384,25 +410,8 @@ def main() -> None:
     first = _run_case(
         {**smoke, "case": "smoke existing 2"}, debug_records=debug_records
     )
-    print(f"Smoke model: {GROQ_MODEL}")
-    if first["actual_status"] == "error":
-        error = first["error"]
-        retryable = error and (
-            error["http_status"] == 429
-            or "timeout" in error["exception_type"].lower()
-            or "timed out" in error["message"].lower()
-        )
-        if first["stage"] == "model" and retryable:
-            time.sleep(1)
-            retry = _run_case({**smoke, "case": "smoke existing 2 retry"}, debug_records=debug_records)
-            _print_table([first, retry])
-            if debug_records is not None:
-                print(f"Saved raw diagnostics: {_write_debug_raw(debug_records)}")
-            if retry["actual_status"] == "error":
-                print("Smoke failed after the single retry; no other cases were run.")
-            else:
-                print("Smoke retry succeeded.")
-            return
+    print(f"Smoke provider/model: {first.get('provider') or 'n/a'}/{first.get('model') or 'n/a'}")
+    if first["actual_status"] in {"error", "ai_unavailable"}:
         _print_table([first])
         if debug_records is not None:
             print(f"Saved raw diagnostics: {_write_debug_raw(debug_records)}")
@@ -417,7 +426,12 @@ def main() -> None:
 def _run_full_evaluation(*, debug_raw: bool = False) -> None:
     debug_records: list[dict[str, Any]] | None = [] if debug_raw else None
     results = [_run_case(test, debug_records=debug_records) for test in cases()]
-    print(f"Full evaluation model: {GROQ_MODEL}")
+    providers = sorted({
+        f"{row['provider']}/{row['model']}"
+        for row in results
+        if row.get("provider") and row.get("model")
+    })
+    print(f"Full evaluation providers: {', '.join(providers) if providers else 'none'}")
     _print_table(results)
     markdown_path, json_path = _write_results(results)
     print(f"Saved results: {markdown_path} and {json_path}")
