@@ -30,7 +30,11 @@ TESTS = [
         ],
     },
     {
-        "question": "What schedule was published for the May-2026 makeup examination?",
+        "question": (
+            "What schedule was published for the May-2026 makeup examination? "
+            "List the form-filling dates and noon deadline, the date-sheet date, "
+            "and the exam start date."
+        ),
         "keyword": "Makeup",
         "expected": "Schedule for End Semester Makeup Examination May-2026.",
     },

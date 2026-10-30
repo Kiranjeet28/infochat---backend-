@@ -17,7 +17,7 @@ if __package__ in {None, ""}:
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 
-from ingestion.answer_chain import build_answer_chain
+from ingestion.answer_chain import _normalize_answer, build_answer_chain
 from ingestion.chat_model import GROQ_MODEL, create_chat_model
 from ingestion.retrieve import retrieve
 from ingestion.test_search import TESTS
@@ -123,7 +123,7 @@ def _run_case(test: dict[str, str]) -> dict[str, Any]:
         chain = build_answer_chain(retriever=fixed_retriever, model=create_chat_model())
         result = chain.invoke({"question": test["question"]})
         stage = "validation"
-        answer = result["answer"]
+        answer = _normalize_answer(result["answer"])
         citations = [int(number) for number in re.findall(r"\[(\d+)\]", answer)]
         citations_valid = bool(citations) and all(1 <= number <= len(sources) for number in citations)
         cited_titles = list(dict.fromkeys(
