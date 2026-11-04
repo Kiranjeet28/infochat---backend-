@@ -9,6 +9,7 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
+from ingestion.cache_store import invalidate_notice_cache
 
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -148,6 +149,7 @@ def load_notices() -> tuple[int, int, int, int]:
     }
 
     inserted = updated = skipped_existing = 0
+    changed_notice_ids: set[str] = set()
     insert_rows: list[dict[str, Any]] = []
     with requests.Session() as session:
         existing_by_id, existing_hashes = _fetch_existing_notices(session, endpoint, headers)
@@ -175,6 +177,7 @@ def load_notices() -> tuple[int, int, int, int]:
                 existing_hashes.add(content_hash)
                 existing_by_id[notice_id] = content_hash
                 updated += 1
+                changed_notice_ids.add(notice_id)
             else:
                 insert_rows.append(row)
 
@@ -189,8 +192,12 @@ def load_notices() -> tuple[int, int, int, int]:
             response.raise_for_status()
             result = response.json()
             inserted += len(result) if isinstance(result, list) else 0
+            if isinstance(result, list):
+                changed_notice_ids.update(str(item["notice_id"]) for item in result if item.get("notice_id"))
 
     skipped_existing += len(insert_rows) - inserted
+    if changed_notice_ids:
+        invalidate_notice_cache(changed_notice_ids)
     print(f"Inserted {inserted} notices")
     print(f"Updated {updated} notices with changed content_hash")
     print(f"Skipped {skipped_existing} notices with an existing content_hash")

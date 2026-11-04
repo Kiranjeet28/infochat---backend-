@@ -23,6 +23,20 @@ REQUEST_TIMEOUT_SECONDS = 30
 _embedding_model: Any | None = None
 
 
+def initialize_embedding_model() -> Any:
+    """Load the local embedding model before the API begins serving requests."""
+    global _embedding_model
+    if _embedding_model is None:
+        try:
+            _embedding_model = create_embedding_model()
+        except Exception:
+            raise RuntimeError(
+                "FastEmbed model cache is missing or unusable; restore the configured model "
+                "under backend/models_cache before starting the API."
+            ) from None
+    return _embedding_model
+
+
 def retrieve(
     question: str,
     department: str | None = None,
@@ -35,8 +49,6 @@ def retrieve(
     Requires ``SUPABASE_URL`` and ``SUPABASE_SERVICE_ROLE_KEY`` in the
     environment (or the repository's local ``.env`` file).
     """
-    global _embedding_model
-
     question = question.strip()
     if not question:
         raise ValueError("question must not be empty")
@@ -46,9 +58,7 @@ def retrieve(
     if not project_url or not service_role_key:
         raise RuntimeError("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.")
 
-    if _embedding_model is None:
-        _embedding_model = create_embedding_model()
-    query_vector = next(_embedding_model.embed([question])).tolist()
+    query_vector = next(initialize_embedding_model().embed([question])).tolist()
 
     headers = {
         "apikey": service_role_key,

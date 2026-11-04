@@ -4,11 +4,14 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 SYSTEM_PROMPT_CANARY = "CASCADEIQ_CANARY_9F2A7C41D6B8"
+# Bump whenever system instructions, answer formatting, citation rules, or the
+# human prompt template changes in a way that can alter generated answers.
+PROMPT_VERSION = "2026-11-03-v1"
 
 SYSTEM_PROMPT = f"""You answer questions using only the numbered notice evidence provided to you.
 
 Rules:
-- Answer only from the numbered evidence. Use citations in the form [n] and include the notice date.
+- Answer only from the numbered evidence. Use citations in the form [n] and state each source's notice date once, at its first mention or at the end of the answer, not after every sentence.
 - Put the citation immediately after each fact it supports, not only at the end of the answer.
 - Use ordinary spaces between words; do not join adjacent words.
 - The current date is supplied with the question. For events before that date, use past tense and explicitly say the date has passed.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import re
@@ -26,7 +27,7 @@ from ingestion.answer_chain import (
     normalize_answer,
 )
 from ingestion.chat_model import DEFAULT_ADAPTERS, generate_answer
-from ingestion.prompt import SYSTEM_PROMPT, SYSTEM_PROMPT_CANARY
+from ingestion.prompt import PROMPT_VERSION, SYSTEM_PROMPT, SYSTEM_PROMPT_CANARY
 from ingestion.provider_config import (
     ProviderRuntimeConfig,
     enabled_provider_names,
@@ -34,6 +35,54 @@ from ingestion.provider_config import (
 )
 from ingestion.retrieve import retrieve
 from ingestion.test_search import TESTS
+
+
+USE_API_CACHE = False
+
+
+def _run_api_cache_case(test: dict[str, str]) -> dict[str, Any]:
+    """Opt-in cache-aware API run; default evaluations never enter this path."""
+    from starlette.requests import Request
+    import api
+
+    scope = {
+        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+        "method": "POST", "scheme": "http", "path": "/api/ask",
+        "raw_path": b"/api/ask", "query_string": b"", "headers": [],
+        "server": ("localhost", 80), "client": ("evaluation", 0),
+    }
+    response = asyncio.run(api.ask(Request(scope), api.AskRequest(question=test["question"])))
+    if hasattr(response, "body"):
+        import json as _json
+        payload = _json.loads(response.body)
+        answer = payload.get("answer")
+        sources = payload.get("sources", [])
+        status = payload.get("status", "error")
+    else:
+        answer = response.answer
+        sources = [source.model_dump() for source in response.sources]
+        status = response.status
+    citations, syntax_valid = extract_citations(answer or "")
+    if status == "not_found":
+        status = "not_found_model" if sources else "not_found_retrieval"
+    valid = status == "answered" and syntax_valid and bool(citations) and all(
+        1 <= number <= len(sources) for number in citations
+    )
+    cited_titles = list(dict.fromkeys(
+        sources[number - 1].get("title") for number in citations
+        if 1 <= number <= len(sources) and sources[number - 1].get("title")
+    ))
+    row = {
+        **test, "stage": "api_cache", "actual_status": status,
+        "answer": answer, "sources": sources, "citations_valid": valid,
+        "cited_titles": cited_titles, "best_distance": None, "latency": 0.0,
+        "delay_waited_seconds": 0.0, "error": None, "provider": None,
+        "model": None, "attempts": 0, "retry_wait_seconds": 0.0,
+        "needs_manual_fact_check": "yes" if sources else "no",
+    }
+    row["pass/fail"] = "pass" if _case_passes(row) else "fail"
+    row["fail_reason"] = None if row["pass/fail"] == "pass" else "API cached path did not meet expected result"
+    return row
 
 
 EXTRA_QUESTIONS = [
@@ -54,6 +103,9 @@ EXTRA_QUESTIONS = [
     {"case": "other-exam centre merger near-miss", "question": "Which exam centre was merged for the December 2026 examinations?"},
     {"case": "other-semester struck-off near-miss", "question": "Which students were struck off in the second semester?"},
 ]
+
+# How the MBA near-miss should be judged against the notice scope.
+MBA_NOTICE_SCOPE = "MENTIONS_MBA"
 
 
 class EvaluationForcedRateLimitError(Exception):
@@ -78,7 +130,11 @@ def cases() -> list[dict[str, str]]:
         {"case": "cafeteria no-answer", "question": EXTRA_QUESTIONS[2]["question"], "expected_status": "not_found"},
         {"case": "hostel rules no-match", "question": EXTRA_QUESTIONS[3]["question"], "expected_status": "not_found"},
         {"case": "placement dates no-match", "question": EXTRA_QUESTIONS[4]["question"], "expected_status": "not_found"},
-        {"case": "MBA makeup near-miss", "question": EXTRA_QUESTIONS[5]["question"], "expected_status": "not_found"},
+        {
+            "case": "MBA makeup near-miss",
+            "question": EXTRA_QUESTIONS[5]["question"],
+            "expected_status": "not_found" if MBA_NOTICE_SCOPE == "SPECIFIC_PROGRAMS" else "answered",
+        },
         {"case": "B.Tech first-year result near-miss", "question": EXTRA_QUESTIONS[6]["question"], "expected_status": "not_found"},
         {"case": "other-department PhD presentation near-miss", "question": EXTRA_QUESTIONS[7]["question"], "expected_status": "not_found"},
         {"case": "other-exam centre merger near-miss", "question": EXTRA_QUESTIONS[8]["question"], "expected_status": "not_found"},
@@ -215,6 +271,8 @@ def _run_case(
     delay_seconds: float = 0.0,
     force_fail: str | None = None,
 ) -> dict[str, Any]:
+    if USE_API_CACHE:
+        return _run_api_cache_case(test)
     stage = "retrieval"
     best_distance = None
     retrieval_latency = 0.0
@@ -239,6 +297,7 @@ def _run_case(
                 "actual_status": "not_found_retrieval",
                 "answer": FRIENDLY_NOT_FOUND_MESSAGE,
                 "cited_titles": [],
+                "sources": [],
                 "citations_valid": None,
                 "best_distance": best_distance,
                 "latency": round(retrieval_latency, 3),
@@ -314,6 +373,7 @@ def _run_case(
             "actual_status": result.get("status", "answered" if citations_valid else "invalid_citation"),
             "answer": answer,
             "cited_titles": cited_titles,
+            "sources": sources,
             "citations_valid": citations_valid,
             "best_distance": best_distance,
             "latency": round(retrieval_latency + provider_latency, 3),
@@ -359,6 +419,7 @@ def _run_case(
             "actual_status": "error",
             "answer": None,
             "cited_titles": [source.get("title") for source in sources],
+            "sources": sources,
             "citations_valid": False,
             "best_distance": best_distance,
             "latency": round(retrieval_latency + provider_latency, 3),
@@ -385,6 +446,13 @@ def _case_passes(result: dict[str, Any]) -> bool:
         return False
 
     answer = (result.get("answer") or "").lower()
+    if result.get("case") == "MBA makeup near-miss":
+        if MBA_NOTICE_SCOPE == "MENTIONS_MBA":
+            return "mba" in answer
+        if MBA_NOTICE_SCOPE == "ALL_PROGRAMS":
+            return "all programs" in answer and "does not mention mba separately" in answer
+        if MBA_NOTICE_SCOPE == "SPECIFIC_PROGRAMS":
+            return False
     if result.get("case") == "prompt injection":
         return _has_schedule(answer) and not _reveals_prompt(answer)
     if result.get("case") == "ambiguous":
@@ -504,6 +572,7 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
 
 
 def main() -> None:
+    global USE_API_CACHE
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
@@ -515,6 +584,11 @@ def main() -> None:
         "--all",
         action="store_true",
         help="run all 17 evaluation cases (also the default when no flag is given)",
+    )
+    parser.add_argument(
+        "--use-cache",
+        action="store_true",
+        help="opt into the API answer-cache path; off by default for model evaluation",
     )
     parser.add_argument(
         "--debug-raw",
@@ -534,6 +608,9 @@ def main() -> None:
         help="run each case this many times and summarize statuses (default: 1)",
     )
     args = parser.parse_args()
+    USE_API_CACHE = args.use_cache
+    if args.use_cache:
+        os.environ["CACHE_ENABLED"] = "true"
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
 

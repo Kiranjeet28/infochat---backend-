@@ -19,6 +19,7 @@ RETURNS TABLE (
     source_url text,
     department text,
     semester text,
+    content_hash text,
     score double precision
 )
 LANGUAGE sql
@@ -34,6 +35,7 @@ AS $$
         c.source_url::text,
         n.department::text,
         n.semester::text,
+        c.content_hash::text,
         (c.embedding <=> query_embedding)::double precision AS score
     FROM public.chunks AS c
     JOIN public.notices AS n ON n.notice_id = c.notice_id
@@ -61,6 +63,7 @@ RETURNS TABLE (
     source_url text,
     department text,
     semester text,
+    content_hash text,
     score double precision
 )
 LANGUAGE sql
@@ -76,6 +79,7 @@ AS $$
         c.source_url::text,
         n.department::text,
         n.semester::text,
+        c.content_hash::text,
         ts_rank_cd(
             c.search_vector,
             websearch_to_tsquery('simple', search_query)

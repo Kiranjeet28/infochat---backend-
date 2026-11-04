@@ -11,6 +11,7 @@ import requests
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from ingestion.embedding_config import EMBEDDING_MODEL, create_embedding_model
+from ingestion.cache_store import invalidate_notice_cache
 
 
 PAGE_SIZE = 1000
@@ -318,6 +319,7 @@ def split_and_load() -> tuple[int, int, int]:
             "Prefer": "resolution=merge-duplicates,return=representation",
         }
         saved = 0
+        changed_notice_ids = set(delete_ids) - set(delete_failures)
         for notice_id, rows in chunk_rows_by_notice.items():
             if notice_id in delete_failures:
                 continue
@@ -334,8 +336,13 @@ def split_and_load() -> tuple[int, int, int]:
                     result = response.json()
                     saved += len(result) if isinstance(result, list) else 0
                 _record_index_status(session, project_url, headers, notice_id, "indexed")
+                if rows:
+                    changed_notice_ids.add(notice_id)
             except requests.RequestException as error:
                 failed_notices[notice_id] = f"Chunk save failed: {error}"[:1000]
+
+        if changed_notice_ids:
+            invalidate_notice_cache(changed_notice_ids)
 
         for notice_id, reason in failed_notices.items():
             try:

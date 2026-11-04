@@ -10,8 +10,9 @@ EMBEDDING_CACHE_DIR = Path(__file__).resolve().parent.parent / "models_cache"
 
 
 def create_embedding_model() -> TextEmbedding:
-    """Create the configured model with a persistent repository-local cache."""
+    """Load the configured model from the repository cache without downloading."""
     return TextEmbedding(
         model_name=EMBEDDING_MODEL,
         cache_dir=str(EMBEDDING_CACHE_DIR),
+        local_files_only=True,
     )

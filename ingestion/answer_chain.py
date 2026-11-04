@@ -132,7 +132,7 @@ def _validate_answer(values: dict[str, Any]) -> dict[str, Any]:
     sources = [
         {
             key: document.metadata.get(key)
-            for key in ("notice_id", "title", "published_at", "source_url")
+            for key in ("notice_id", "title", "published_at", "source_url", "content_hash")
         }
         for document in documents
     ]
@@ -165,7 +165,7 @@ def _validate_generation(values: dict[str, Any]) -> dict[str, Any]:
         sources = [
             {
                 key: document.metadata.get(key)
-                for key in ("notice_id", "title", "published_at", "source_url")
+                for key in ("notice_id", "title", "published_at", "source_url", "content_hash")
             }
             for document in documents
         ]

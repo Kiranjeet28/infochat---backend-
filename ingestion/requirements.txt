@@ -9,6 +9,7 @@ langchain-groq
 langchain-google-genai
 fastapi
 uvicorn[standard]
+httpx
 tiktoken
 sentence-transformers
 fastembed

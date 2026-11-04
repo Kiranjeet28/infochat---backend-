@@ -37,6 +37,7 @@ class NoticeRetriever(BaseRetriever):
                 key: row.get(key)
                 for key in (
                     "notice_id",
+                    "content_hash",
                     "title",
                     "published_at",
                     "source_url",

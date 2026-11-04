@@ -414,10 +414,13 @@ class RetrievalAndRoutingTests(unittest.TestCase):
         }
         self.assertFalse(_case_passes(result))
 
-    def test_all_five_near_miss_questions_expect_not_found(self):
+    def test_near_miss_statuses_follow_the_configured_mba_notice_scope(self):
         near_misses = [case for case in cases() if "near-miss" in case["case"]]
         self.assertEqual(len(near_misses), 5)
-        self.assertTrue(all(case["expected_status"] == "not_found" for case in near_misses))
+        mba_case = next(case for case in near_misses if case["case"] == "MBA makeup near-miss")
+        other_cases = [case for case in near_misses if case is not mba_case]
+        self.assertEqual(mba_case["expected_status"], "answered")
+        self.assertTrue(all(case["expected_status"] == "not_found" for case in other_cases))
 
     def test_struck_off_notice_evidence_withholds_names_and_roll_numbers(self):
         document = Document(
