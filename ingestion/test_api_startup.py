@@ -96,7 +96,7 @@ class ApiStartupTests(unittest.TestCase):
                 with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
                     response = client.post("/api/ask", json={"question": "When is the exam?"})
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(set(response.json()), {"answer", "sources", "status", "cached"})
+                self.assertEqual(set(response.json()), {"answer", "sources", "status", "sources_kind", "cached"})
                 self.assertFalse(response.json()["cached"])
                 self.assertEqual(response.json()["status"], "answered")
                 self.assertTrue(response.headers.get("X-Request-ID"))
@@ -134,7 +134,8 @@ class ApiStartupTests(unittest.TestCase):
                 ) as client:
                     response = client.post("/api/ask", json={"question": "What is announced?"})
                 self.assertEqual(response.status_code, 500)
-                self.assertEqual(response.json(), expected)
+                self.assertEqual({key: response.json()[key] for key in expected}, expected)
+                self.assertEqual(response.json()["request_id"], response.headers["X-Request-ID"])
                 self.assertNotIn("Traceback", response.text)
                 self.assertNotIn("secret prompt", response.text)
                 self.assertTrue(response.headers.get("X-Request-ID"))

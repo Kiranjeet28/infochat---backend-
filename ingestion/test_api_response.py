@@ -41,12 +41,7 @@ class ApiResponseTests(unittest.TestCase):
             patch.object(api, "_answer_chain", FakeChain(result)),
             patch.dict(os.environ, {"CASCADEIQ_PLAIN_TEXT_ANSWERS": plain_text}),
         ):
-            pending = api.ask(_request(), api.AskRequest(question="test question"))
-            try:
-                pending.send(None)
-            except StopIteration as completed:
-                return completed.value
-            self.fail("fake chain unexpectedly suspended during offline response test")
+            return api.ask(_request(), api.AskRequest(question="test question"))
 
     @staticmethod
     def source(title):

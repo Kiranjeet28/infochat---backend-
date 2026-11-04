@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import logging
+from logging.handlers import RotatingFileHandler
+import os
 import re
+import time
 import traceback
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
+from pathlib import Path
+from contextvars import ContextVar
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -31,6 +36,7 @@ from ingestion.retrieve import initialize_embedding_model
 
 
 logger = logging.getLogger("cascadeiq.api")
+_request_id: ContextVar[str] = ContextVar("cascadeiq_request_id", default="startup")
 MAX_QUESTION_LENGTH = 1000
 _answer_chain = None
 _provider_config: ProviderRuntimeConfig | None = None
@@ -38,11 +44,33 @@ _cache_store: SupabaseCacheStore | None = None
 _cache_counters = {"hit": 0, "miss": 0}
 
 
+class _RequestIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = _request_id.get()
+        return True
+
+
+def _configure_logging() -> None:
+    log_dir = Path(__file__).resolve().parent / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(log_dir / "api.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+    handler.addFilter(_RequestIdFilter())
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s request_id=%(request_id)s %(message)s"))
+    logger.setLevel(logging.INFO)
+    if not any(isinstance(item, RotatingFileHandler) and item.baseFilename == handler.baseFilename for item in logger.handlers):
+        logger.addHandler(handler)
+
+
+_configure_logging()
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    global _provider_config
+    global _provider_config, _answer_chain
     _provider_config = require_enabled_provider_config()
     initialize_embedding_model()
+    if _answer_chain is None:
+        _answer_chain = build_answer_chain(provider_config=_provider_config)
     yield
 
 
@@ -51,25 +79,23 @@ app = FastAPI(title="CascadeIQ API", lifespan=lifespan)
 
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
-    request_id = str(uuid4())
+    request_id = uuid4().hex
     request.state.request_id = request_id
-    response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    return response
+    token = _request_id.set(request_id)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        _request_id.reset(token)
 
 
 def _log_safe_traceback(request: Request, error: Exception) -> None:
     """Log stack frames and exception type while withholding exception text."""
     frames = traceback.extract_tb(error.__traceback__)
     stack = "".join(traceback.format_list(frames))
-    request_id = getattr(request.state, "request_id", "unavailable")
-    logger.error(
-        "request_id=%s unexpected API error (%s):\n%s%s: [details redacted]",
-        request_id,
-        request.url.path,
-        stack,
-        type(error).__name__,
-    )
+    logger.error("status=error error_type=%s traceback=Traceback (most recent call last):\n%s%s",
+                 type(error).__name__, stack, type(error).__name__)
 
 
 @app.exception_handler(Exception)
@@ -77,7 +103,8 @@ async def unexpected_error_handler(request: Request, error: Exception) -> JSONRe
     _log_safe_traceback(request, error)
     return JSONResponse(
         status_code=500,
-        content={"status": "error", "message": "Something went wrong. Please try again."},
+        content={"status": "error", "message": "Something went wrong. Please try again.",
+                 "request_id": getattr(request.state, "request_id", "unavailable")},
     )
 
 
@@ -136,7 +163,7 @@ def strip_markdown(text: str) -> str:
 
 
 @app.post("/api/ask", response_model=AskResponse)
-async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
+def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
     """Answer a question from current notices and return its source cards."""
     question = body.question.strip()
     if not question:
@@ -146,12 +173,16 @@ async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
         )
 
     global _answer_chain, _cache_store
+    request_id = getattr(request.state, "request_id", "unavailable")
+    started = time.monotonic()
+    provider = model = None
+    attempts = 0
+    status = "error"
+    cached = False
     try:
         cache_allowed = cache_enabled() and not privacy_guard(question)
-        question_digest = question_hash(question)
         if not cache_allowed:
-            logger.info("cache bypass question_hash=%s cached=false cache_age_seconds=null hits=%s misses=%s",
-                        question_digest, _cache_counters["hit"], _cache_counters["miss"])
+            logger.info("status=cache_bypass cached=false question_length=%d", len(question))
         current_key = None
         kb_version = None
         cache_age_seconds = None
@@ -160,7 +191,8 @@ async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
                 if _cache_store is None:
                     import os
                     _cache_store = SupabaseCacheStore(
-                        os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+                        os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+                        timeout_seconds=3,
                     )
                 kb_version = read_kb_version(_cache_store.project_url, _cache_store.service_role_key)
                 current_key = cache_key(
@@ -176,31 +208,37 @@ async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
                 )
                 if entry:
                     entry["hit_count"] = int(entry.get("hit_count", 0)) + 1
-                    _cache_store.set(entry)
+                    try:
+                        _cache_store.set(entry)
+                    except Exception as cache_error:
+                        logger.warning("status=answered cached=true cache_op=hit_count error_type=%s",
+                                       type(cache_error).__name__)
                     _cache_counters["hit"] += 1
-                    logger.info("cache hit question_hash=%s cached=true cache_age_seconds=%s hits=%s misses=%s",
-                                question_digest, cache_age_seconds, _cache_counters["hit"], _cache_counters["miss"])
+                    logger.info("status=answered cached=true provider=%s model=%s attempts=0 latency=%.3f question_length=%d",
+                                entry.get("provider"), entry.get("model"), time.monotonic() - started, len(question))
                     return AskResponse(
                         answer=entry["answer"], sources=entry["sources"], status="answered",
                         sources_kind="cited", cached=True,
                     )
                 _cache_counters["miss"] += 1
-                logger.info("cache miss question_hash=%s cached=false cache_age_seconds=null hits=%s misses=%s",
-                            question_digest, _cache_counters["hit"], _cache_counters["miss"])
+                logger.info("status=cache_miss cached=false question_length=%d", len(question))
             except Exception as cache_error:
-                logger.warning("cache unavailable (%s); proceeding without cache", type(cache_error).__name__)
+                logger.warning("status=cache_miss cached=false cache_op=get_or_invalidate error_type=%s",
+                               type(cache_error).__name__)
                 cache_allowed = False
 
-        chain = _answer_chain
+        chain = _answer_chain or build_answer_chain(provider_config=_provider_config)
         if body.department or body.semester:
             chain = build_answer_chain(
                 retriever=NoticeRetriever(department=body.department, semester=body.semester),
                 provider_config=_provider_config,
             )
-        elif chain is None:
-            chain = build_answer_chain(provider_config=_provider_config)
-            _answer_chain = chain
-        result = await chain.ainvoke({"question": question})
+        invocation = {"question": question}
+        if hasattr(chain, "invoke"):
+            result = chain.invoke(invocation)
+        else:  # Compatibility for async fakes and custom chains in tests.
+            import asyncio
+            result = asyncio.run(chain.ainvoke(invocation))
 
         raw_status = result.get("status", "answered")
         if raw_status in {"not_found", "not_found_model", "not_found_retrieval"}:
@@ -211,6 +249,7 @@ async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
             raise RuntimeError("answer chain returned an unsupported status")
 
         answer = result.get("answer", "not found")
+        provider, model, attempts = result.get("provider"), result.get("model"), result.get("attempts", 0)
         retrieved_sources = result.get("sources", [])
         citations, syntax_valid = extract_citations(answer)
         citations_valid = (
@@ -231,7 +270,7 @@ async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
         if plain_text_answers_enabled():
             answer = strip_markdown(answer)
 
-        if cache_allowed and status == "answered" and current_key and kb_version:
+        if cache_allowed and status == "answered" and citations_valid and current_key and kb_version:
             source_ids = list(dict.fromkeys(
                 str(source.get("notice_id")) for source in sources if source.get("notice_id")
             ))
@@ -258,8 +297,11 @@ async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
                 try:
                     cache_answer_if_valid(_cache_store, result, citations_valid, entry)
                 except Exception as cache_error:
-                    logger.warning("cache write unavailable (%s)", type(cache_error).__name__)
+                    logger.warning("status=%s cached=false cache_op=set error_type=%s", status,
+                                   type(cache_error).__name__)
 
+        logger.info("status=%s cached=false provider=%s model=%s attempts=%s latency=%.3f question_length=%d",
+                    status, provider, model, attempts, time.monotonic() - started, len(question))
         return AskResponse(
             answer=answer,
             sources=sources,
@@ -269,7 +311,10 @@ async def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
         )
     except Exception as error:
         _log_safe_traceback(request, error)
+        logger.error("status=error cached=false provider=%s model=%s attempts=%s latency=%.3f error_type=%s question_length=%d",
+                     provider, model, attempts, time.monotonic() - started, type(error).__name__, len(question))
         return JSONResponse(
             status_code=500,
-            content={"status": "error", "message": "Something went wrong. Please try again."},
+            content={"status": "error", "message": "Something went wrong. Please try again.",
+                     "request_id": request_id},
         )

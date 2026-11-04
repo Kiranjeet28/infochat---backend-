@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import requests
@@ -21,6 +22,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 REQUEST_TIMEOUT_SECONDS = 30
 
 _embedding_model: Any | None = None
+_embedding_lock = Lock()
 
 
 def initialize_embedding_model() -> Any:
@@ -58,7 +60,8 @@ def retrieve(
     if not project_url or not service_role_key:
         raise RuntimeError("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.")
 
-    query_vector = next(initialize_embedding_model().embed([question])).tolist()
+    with _embedding_lock:
+        query_vector = next(initialize_embedding_model().embed([question])).tolist()
 
     headers = {
         "apikey": service_role_key,

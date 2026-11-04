@@ -61,7 +61,7 @@ class SupabaseCacheStore:
 
     project_url: str
     service_role_key: str
-    timeout_seconds: int = 15
+    timeout_seconds: int = 3
 
     def _request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
         request_headers = {

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import time
+from threading import Lock
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Mapping
@@ -20,6 +21,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 AI_UNAVAILABLE_MESSAGE = "The AI service is temporarily unavailable. Please try again later."
 AI_ERROR_MESSAGE = "The AI service could not process this request."
 AUDIT_PATH = Path(__file__).resolve().parent.parent / "results" / "provider_audit.jsonl"
+_AUDIT_LOCK = Lock()
 RETRYABLE_HTTP_STATUSES = {429, 500, 502, 503, 504}
 NON_RETRYABLE_HTTP_STATUSES = {400, 401, 403, 404}
 
@@ -181,8 +183,9 @@ def _append_audit_event(event: dict[str, Any]) -> None:
     """Append metadata-only audit data; never write prompts, notice text, or credentials."""
     try:
         AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with AUDIT_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+        with _AUDIT_LOCK:
+            with AUDIT_PATH.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
     except OSError:
         return
 

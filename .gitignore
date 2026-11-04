@@ -4,3 +4,4 @@
 .test-packages/
 /models_cache/
 models_cache/
+logs/
