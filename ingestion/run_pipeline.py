@@ -31,6 +31,7 @@ WARMUP_ATTEMPTS = 4
 WARMUP_TOTAL_SECONDS = 240
 MIN_TEXT_LENGTH = int(os.getenv("MIN_NOTICE_TEXT_LENGTH", "40"))
 ALLOWED_SOURCE_DOMAINS = tuple(filter(None, os.getenv("ALLOWED_SOURCE_DOMAINS", "gndec.ac.in").split(",")))
+CURRENT_STAGE = "startup"
 
 
 def decide_review_status(notice: dict[str, Any], *, duplicate_hash: bool = False) -> tuple[str, list[str]]:
@@ -162,14 +163,18 @@ def _row(notice: dict[str, Any]) -> dict[str, Any]:
 def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | None = None,
         api_url: str | None = None, store: Any = None, session: Any = None,
         processor=process_notices, embedder_factory=None) -> tuple[int, dict[str, Any]]:
+    global CURRENT_STAGE
+    CURRENT_STAGE = "configuration"
     started = time.monotonic()
     api_url = api_url or os.environ["NOTICES_API_URL"]
     session = session or requests.Session()
     pages_cap = max_pages or (5 if mode == "incremental" else 200)
     summary: dict[str, Any] = {"mode":mode,"dry_run":dry_run,"fetched":0,"new":0,"changed":0,"unchanged":0,"superseded":0,"needs_review":{},"length_only":[],"failed":0,"chunks_written":0,"embeddings_written":0,"kb_version_before":None,"kb_version_after":None,"cache_entries_invalidated":0,"warnings":[],"duration_seconds":0}
+    CURRENT_STAGE = "notices_api_warmup"
     warm_up(session, api_url)
     if store is None:
         store = RestStore(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+    CURRENT_STAGE = "supabase_read_known_notices"
     known_rows = store.known()
     known = {str(r["notice_id"]):r for r in known_rows}
     existing_hashes = {r["content_hash"] for r in known_rows if r.get("content_hash")}
@@ -177,6 +182,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     processed_incremental: list[dict[str, Any]] = []
     completed = False
     for page in range(1, pages_cap + 1):
+        CURRENT_STAGE = "notices_api_fetch"
         items = fetch_page(session, api_url, page)
         if not items:
             completed = True
@@ -193,9 +199,12 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
                 break
     summary["fetched"] = len(fetched)
     if not completed and mode == "full": summary["warnings"].append("fetch did not reach an empty page before the hard page cap")
+    CURRENT_STAGE = "supabase_read_kb_version"
     summary["kb_version_before"] = store.version()
+    CURRENT_STAGE = "notice_extraction_and_review"
     processed = processed_incremental if mode == "incremental" else processor(fetched)
     if mode == "incremental" and processed:
+        CURRENT_STAGE = "version_linking"
         # The linker compares extracted notices with lightweight stored metadata;
         # stored notice text is deliberately not fetched.
         candidates = []
@@ -255,6 +264,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     # Prepare every vector before the first write so a model/dimension error is atomic.
     prepared_chunks: dict[str, list[dict[str, Any]]] = {}
     if changed_notices and not dry_run:
+        CURRENT_STAGE = "chunk_and_embedding_preparation"
         splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(encoding_name="cl100k_base", chunk_size=CHUNK_SIZE_TOKENS, chunk_overlap=CHUNK_OVERLAP_TOKENS)
         factory = embedder_factory or (lambda: create_embedding_model(allow_download=os.getenv("EMBEDDING_ALLOW_DOWNLOAD") == "1"))
         model = factory()
@@ -277,16 +287,20 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     summary["superseded"] = sum(bool(n.get("supersedes_id")) for n in processed)
     for notice, is_new in changed_notices:
         if dry_run: continue
+        CURRENT_STAGE = "supabase_write_notices"
         store.persist_notice(_row(notice), is_new)
     if not dry_run:
+        CURRENT_STAGE = "supabase_delete_old_chunks"
         for notice, _ in changed_notices:
             store.delete_chunks(str(notice.get("_id", notice.get("notice_id"))))
     for notice in processed:
         older = notice.get("supersedes_id")
         if older:
+            CURRENT_STAGE = "supabase_mark_superseded"
             changed_ids.add(str(older))
             if not dry_run: store.mark_superseded(str(older), str(notice.get("_id", notice.get("notice_id"))))
     if mode == "full":
+        CURRENT_STAGE = "full_run_withdrawal_check"
         missing = set(known) - source_ids
         if not completed: summary["warnings"].append("withdrawal skipped: fetch was incomplete")
         elif len(missing) > 5 or (known and len(missing) / len(known) > .10): summary["warnings"].append("withdrawal skipped: missing count exceeds 5 or 10 percent threshold")
@@ -295,8 +309,10 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
             if not dry_run: store.withdraw_missing(set(known), source_ids)
             changed_ids.update(missing)
     for notice_id, chunk_rows in prepared_chunks.items():
+        CURRENT_STAGE = "supabase_write_chunks"
         summary["chunks_written"] += store.write_chunks(chunk_rows)
     if changed_ids and not dry_run:
+        CURRENT_STAGE = "cache_invalidation_and_kb_version_bump"
         summary["cache_entries_invalidated"] = store.invalidate(changed_ids)
         bump_kb_version(store.url, store.key)
     total = max(1, len(processed))
@@ -304,7 +320,9 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     if summary["failed"]:
         summary["warnings"].append("some notices failed processing")
     summary["duration_seconds"] = round(time.monotonic() - started, 2)
+    CURRENT_STAGE = "supabase_read_final_kb_version"
     summary["kb_version_after"] = store.version()
+    CURRENT_STAGE = "complete"
     return (2 if summary["warnings"] else 0), summary
 
 
@@ -322,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         code, summary = run(mode=args.mode, dry_run=args.dry_run, max_pages=args.max_pages)
     except Exception as error:
-        safe_error = "pipeline failed; inspect the workflow run summary"
+        safe_error = f"Pipeline failed during stage '{CURRENT_STAGE}'; inspect the workflow run summary."
         if isinstance(error, RuntimeError):
             if str(error) == "Notices API warm-up/fetch failed before database access":
                 safe_error = "Notices API warm-up failed after retries; check NOTICES_API_URL and API availability."
@@ -330,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
                 safe_error = "More than 20% of fetched notices failed extraction; inspect source records and extraction status."
             elif str(error).startswith("Embedding dimension mismatch:"):
                 safe_error = "Embedding dimension mismatch; verify the configured embedding model output."
-        summary = {"mode":args.mode,"dry_run":args.dry_run,"failed":1,"error_type":type(error).__name__,"error":safe_error}
+        summary = {"mode":args.mode,"dry_run":args.dry_run,"failed":1,"stage":CURRENT_STAGE,"error_type":type(error).__name__,"error":safe_error}
         code = 1
         print(safe_error, file=sys.stderr)
     payload = json.dumps(summary, ensure_ascii=False, indent=2)
