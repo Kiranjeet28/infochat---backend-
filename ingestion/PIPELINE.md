@@ -1,6 +1,6 @@
 # CascadeIQ ingestion pipeline
 
-Repository settings: add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as Actions secrets, and `NOTICES_API_URL` as an Actions variable. The workflow maps these only into its run step.
+Repository settings: add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as Actions secrets. `NOTICES_API_URL` is optional and defaults to `https://infocascade-backend.onrender.com/api/notices`; set it as an Actions variable to override the default. The workflow maps these only into its run step.
 
 Scheduled runs are disabled unless repository variable `INGEST_ENABLED` is exactly `true`. Manual `workflow_dispatch` runs remain available regardless of that variable.
 
