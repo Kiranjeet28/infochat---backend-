@@ -37,6 +37,10 @@ class FakeStore:
     def invalidate(self, *args): self.writes.append(("invalidate",args)); return 0
 
 
+class FakeSplitter:
+    def split_text(self, text): return [text]
+
+
 def processed(notices):
     return [dict(n, notice_id=n.get("_id"), text=n.get("text", "x"), content_hash=n.get("content_hash", "h"),
                  extraction_confidence=.9, published_at="2026-10-01T00:00:00Z", version_status="no_match") for n in notices]
@@ -55,7 +59,7 @@ class RunPipelineOfflineTests(unittest.TestCase):
 
     def test_full_fetches_through_empty_page_and_honors_cap(self):
         api=FakeAPI({1:[self.notice()],2:[]}); store=FakeStore()
-        with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"):
+        with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"), patch.object(pipeline.RecursiveCharacterTextSplitter,"from_tiktoken_encoder",return_value=FakeSplitter()):
             _, summary=pipeline.run(mode="full",max_pages=3,api_url="https://api.example.test",store=store,session=api,processor=processed)
         self.assertEqual(api.calls,[1,2]); self.assertTrue(summary["fetched"])
 
@@ -88,7 +92,7 @@ class RunPipelineOfflineTests(unittest.TestCase):
         new=self.notice("new","newhash")
         new.update(title="Updated exam date sheet semester 5",text="This notice replaces the previous schedule.",category="Examinations",department="CSE")
         api=FakeAPI({1:[new]}); store=FakeStore([old])
-        with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"):
+        with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"), patch.object(pipeline.RecursiveCharacterTextSplitter,"from_tiktoken_encoder",return_value=FakeSplitter()):
             _,_=pipeline.run(api_url="https://api.example.test",store=store,session=api,processor=processed)
         self.assertIn(("superseded",("old","new")),store.writes)
 

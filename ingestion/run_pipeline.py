@@ -322,9 +322,17 @@ def main(argv: list[str] | None = None) -> int:
     try:
         code, summary = run(mode=args.mode, dry_run=args.dry_run, max_pages=args.max_pages)
     except Exception as error:
-        summary = {"mode":args.mode,"dry_run":args.dry_run,"failed":1,"error_type":type(error).__name__,"error":"pipeline failed; inspect the workflow run summary"}
+        safe_error = "pipeline failed; inspect the workflow run summary"
+        if isinstance(error, RuntimeError):
+            if str(error) == "Notices API warm-up/fetch failed before database access":
+                safe_error = "Notices API warm-up failed after retries; check NOTICES_API_URL and API availability."
+            elif str(error) == "More than 20 percent of notices failed processing":
+                safe_error = "More than 20% of fetched notices failed extraction; inspect source records and extraction status."
+            elif str(error).startswith("Embedding dimension mismatch:"):
+                safe_error = "Embedding dimension mismatch; verify the configured embedding model output."
+        summary = {"mode":args.mode,"dry_run":args.dry_run,"failed":1,"error_type":type(error).__name__,"error":safe_error}
         code = 1
-        print("Pipeline failed; details suppressed to protect notice content and secrets.", file=sys.stderr)
+        print(safe_error, file=sys.stderr)
     payload = json.dumps(summary, ensure_ascii=False, indent=2)
     print(payload)
     if args.summary_file:
