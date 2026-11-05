@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
   ingest:
+    if: github.event_name == 'workflow_dispatch' || vars.INGEST_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

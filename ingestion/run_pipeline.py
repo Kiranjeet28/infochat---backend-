@@ -18,7 +18,7 @@ SOURCE_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(SOURCE_ROOT / ".env", override=False)
 sys.path.insert(0, str(SOURCE_ROOT))
 from ingestion.embedding_config import EMBEDDING_MODEL, EMBEDDING_CACHE_DIR, create_embedding_model  # noqa: E402
-from ingestion.extract_text import process_notices  # noqa: E402
+from ingestion.extract_text import process_notices, link_notice_versions  # noqa: E402
 from ingestion.cache_store import bump_kb_version, read_kb_version  # noqa: E402
 from ingestion.chunk_notices import (  # noqa: E402
     CHUNK_OVERLAP_TOKENS, CHUNK_SIZE_TOKENS, EMBEDDING_DIMENSIONS,
@@ -29,7 +29,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter  # noqa: E40
 API_TIMEOUT = 90
 WARMUP_ATTEMPTS = 4
 WARMUP_TOTAL_SECONDS = 240
-MIN_TEXT_LENGTH = 100
+MIN_TEXT_LENGTH = int(os.getenv("MIN_NOTICE_TEXT_LENGTH", "40"))
 ALLOWED_SOURCE_DOMAINS = tuple(filter(None, os.getenv("ALLOWED_SOURCE_DOMAINS", "gndec.ac.in").split(",")))
 
 
@@ -54,7 +54,8 @@ def decide_review_status(notice: dict[str, Any], *, duplicate_hash: bool = False
     except (TypeError, ValueError):
         reasons.append("published_at_invalid")
     confidence = notice.get("extraction_confidence")
-    if not isinstance(confidence, (int, float)) or confidence < 0.8:
+    # validate_notice emits a numeric 0.00–1.00 evidence score, not labels.
+    if not isinstance(confidence, (int, float)) or confidence < 0.6:
         reasons.append("extraction_confidence_not_high")
     if len(str(notice.get("text") or "").strip()) < MIN_TEXT_LENGTH:
         reasons.append("text_too_short")
@@ -80,7 +81,7 @@ class RestStore:
         return response
 
     def known(self) -> list[dict[str, Any]]:
-        response = self.request("GET", "notices", params={"select":"notice_id,content_hash,review_status,superseded_by", "limit":10000})
+        response = self.request("GET", "notices", params={"select":"notice_id,content_hash,title,category,department,published_at,review_status,superseded_by", "limit":10000})
         return response.json()
 
     def version(self) -> str:
@@ -165,7 +166,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     api_url = api_url or os.environ["NOTICES_API_URL"]
     session = session or requests.Session()
     pages_cap = max_pages or (5 if mode == "incremental" else 200)
-    summary: dict[str, Any] = {"mode":mode,"dry_run":dry_run,"fetched":0,"new":0,"changed":0,"unchanged":0,"superseded":0,"needs_review":{},"failed":0,"chunks_written":0,"embeddings_written":0,"kb_version_before":None,"kb_version_after":None,"cache_entries_invalidated":0,"warnings":[],"duration_seconds":0}
+    summary: dict[str, Any] = {"mode":mode,"dry_run":dry_run,"fetched":0,"new":0,"changed":0,"unchanged":0,"superseded":0,"needs_review":{},"length_only":[],"failed":0,"chunks_written":0,"embeddings_written":0,"kb_version_before":None,"kb_version_after":None,"cache_entries_invalidated":0,"warnings":[],"duration_seconds":0}
     warm_up(session, api_url)
     if store is None:
         store = RestStore(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
@@ -194,6 +195,18 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     if not completed and mode == "full": summary["warnings"].append("fetch did not reach an empty page before the hard page cap")
     summary["kb_version_before"] = store.version()
     processed = processed_incremental if mode == "incremental" else processor(fetched)
+    if mode == "incremental" and processed:
+        # The linker compares extracted notices with lightweight stored metadata;
+        # stored notice text is deliberately not fetched.
+        candidates = []
+        for row in known_rows:
+            candidates.append({"_id": str(row["notice_id"]), "title": row.get("title") or "",
+                "metadata": {"category": row.get("category"), "department": row.get("department"), "date": row.get("published_at")},
+                "text": "", "content_hash": row.get("content_hash"), "extraction_confidence": 1.0,
+                "version_status": "no_match", "_stored_candidate": True})
+        linked = link_notice_versions(candidates + processed)
+        linked_by_id = {str(n.get("_id")): n for n in linked if not n.get("_stored_candidate")}
+        processed = [linked_by_id.get(str(n.get("_id", n.get("notice_id"))), n) for n in processed]
     changed_ids: set[str] = set()
     changed_notices: list[tuple[dict[str, Any], bool]] = []
     seen_hashes: set[str] = set(existing_hashes)
@@ -210,15 +223,22 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
         duplicate = notice.get("content_hash") in seen_hashes and (prior is None or prior.get("content_hash") != notice.get("content_hash"))
         seen_hashes.add(notice.get("content_hash"))
         status, reasons = decide_review_status(notice, duplicate_hash=duplicate)
+        if reasons == ["text_too_short"]:
+            summary["length_only"].append(notice_id)
         notice["review_status"] = status
         if reasons: summary["needs_review"][notice_id] = reasons
         if prior and prior.get("content_hash") == notice.get("content_hash"):
             summary["unchanged"] += 1
             # Preserve a hand-set review decision for identical content.
             continue
+        if notice.get("content_hash") in existing_hashes:
+            summary["unchanged"] += 1
+            continue
         is_new = prior is None
         summary["new" if is_new else "changed"] += 1
         changed_ids.add(notice_id)
+        if prior and prior.get("review_status"):
+            notice["review_status"] = prior["review_status"]
         changed_notices.append((notice, is_new))
     # Prepare every vector before the first write so a model/dimension error is atomic.
     prepared_chunks: dict[str, list[dict[str, Any]]] = {}
@@ -242,7 +262,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
                 chunk["index_version"] = INDEX_VERSION
             prepared_chunks[row["notice_id"]] = chunk_rows
             summary["embeddings_written"] += len(vectors)
-    summary["superseded"] = sum(bool(n.get("superseded_by")) for n in processed)
+    summary["superseded"] = sum(bool(n.get("supersedes_id")) for n in processed)
     for notice, is_new in changed_notices:
         if dry_run: continue
         store.persist_notice(_row(notice), is_new)

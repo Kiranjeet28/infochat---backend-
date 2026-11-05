@@ -1,5 +1,6 @@
 """Offline orchestration checks using fake API and Supabase adapters."""
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from ingestion import run_pipeline as pipeline
@@ -70,6 +71,34 @@ class RunPipelineOfflineTests(unittest.TestCase):
         self.assertIn("missing_title",reasons)
         self.assertIn("source_url_not_https",reasons)
         self.assertIn("published_at_invalid",reasons)
+
+    def test_domain_accepts_subdomains_and_rejects_suffix_attack(self):
+        base={"title":"T","published_at":"2026-10-01T00:00:00Z","text":"x"*40,"extraction_confidence":.6}
+        self.assertEqual(pipeline.decide_review_status(dict(base,url="https://gndec.ac.in/a"))[0],"ok")
+        self.assertEqual(pipeline.decide_review_status(dict(base,url="https://erp.gndec.ac.in/a"))[0],"ok")
+        self.assertIn("source_domain_not_allowed",pipeline.decide_review_status(dict(base,url="https://gndec.ac.in.evil.com/a"))[1])
+
+    def test_default_minimum_length_is_40_and_length_only_is_reported(self):
+        self.assertEqual(pipeline.MIN_TEXT_LENGTH,40)
+        status,reasons=pipeline.decide_review_status({"title":"T","url":"https://erp.gndec.ac.in/a","published_at":"2026-10-01T00:00:00Z","text":"x","extraction_confidence":.6})
+        self.assertEqual((status,reasons),("needs_review",["text_too_short"]))
+
+    def test_incremental_links_new_notice_to_stored_candidate(self):
+        old={"notice_id":"old","title":"Exam date sheet semester 5","category":"Examinations","department":"CSE","published_at":"2026-09-01","review_status":"ok","superseded_by":None,"content_hash":"oldhash"}
+        new=self.notice("new","newhash")
+        new.update(title="Updated exam date sheet semester 5",text="This notice replaces the previous schedule.",category="Examinations",department="CSE")
+        api=FakeAPI({1:[new]}); store=FakeStore([old])
+        with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"):
+            _,_=pipeline.run(api_url="https://api.example.test",store=store,session=api,processor=processed)
+        self.assertIn(("superseded",("old","new")),store.writes)
+
+    def test_workflow_has_schedule_guard_and_structural_order(self):
+        workflow=Path(__file__).parents[1]/".github/workflows/cascadeiq-ingest.yml"
+        source=workflow.read_text(encoding="utf-8")
+        self.assertIn("schedule:",source)
+        self.assertIn("if: github.event_name == 'workflow_dispatch' || vars.INGEST_ENABLED == 'true'",source)
+        self.assertLess(source.index("jobs:"),source.index("  ingest:"))
+        self.assertLess(source.index("  ingest:"),source.index("    steps:"))
 
 
 if __name__ == "__main__": unittest.main()
