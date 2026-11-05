@@ -9,6 +9,8 @@ import os
 import re
 import time
 import traceback
+import json
+from threading import Lock
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
@@ -33,6 +35,7 @@ from ingestion.langchain_retriever import NoticeRetriever
 from ingestion.prompt import PROMPT_VERSION
 from ingestion.provider_config import ProviderRuntimeConfig, require_enabled_provider_config
 from ingestion.retrieve import initialize_embedding_model
+from ingestion.redirects import redirect_response, marker_response
 
 
 logger = logging.getLogger("cascadeiq.api")
@@ -42,6 +45,8 @@ _answer_chain = None
 _provider_config: ProviderRuntimeConfig | None = None
 _cache_store: SupabaseCacheStore | None = None
 _cache_counters = {"hit": 0, "miss": 0}
+_AUDIT_LOG_PATH = Path(__file__).resolve().parent / "logs" / "audit.log"
+_AUDIT_LOCK = Lock()
 
 
 class _RequestIdFilter(logging.Filter):
@@ -62,6 +67,16 @@ def _configure_logging() -> None:
 
 
 _configure_logging()
+
+
+def _append_audit_event(event: dict[str, object]) -> None:
+    """Write metadata-only audit records without question or answer text."""
+    try:
+        with _AUDIT_LOCK:
+            with _AUDIT_LOG_PATH.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except OSError:
+        logger.warning("status=audit_write_failed error_type=OSError")
 
 
 @asynccontextmanager
@@ -143,9 +158,10 @@ class SourceCard(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     sources: list[SourceCard]
-    status: Literal["answered", "not_found", "invalid_citation", "ai_unavailable"]
+    status: Literal["answered", "not_found", "invalid_citation", "ai_unavailable", "redirect"]
     sources_kind: Literal["cited", "related"]
     cached: bool = False
+    links: list[dict[str, str]] = Field(default_factory=list)
 
 
 def strip_markdown(text: str) -> str:
@@ -180,6 +196,19 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
     status = "error"
     cached = False
     try:
+        routed = redirect_response(question)
+        if routed:
+            status = "redirect"
+            logger.info("status=redirect route=%s question_length=%d", routed["route"], len(question))
+            _append_audit_event({
+                "request_id": request_id, "status": "redirect", "route": routed["route"],
+                "question_length": len(question),
+            })
+            return AskResponse(
+                answer=routed["answer"], sources=[], status="redirect", sources_kind="related",
+                cached=False, links=routed["links"],
+            )
+
         cache_allowed = cache_enabled() and not privacy_guard(question)
         if not cache_allowed:
             logger.info("status=cache_bypass cached=false question_length=%d", len(question))
@@ -241,6 +270,17 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
             result = asyncio.run(chain.ainvoke(invocation))
 
         raw_status = result.get("status", "answered")
+        model_redirect = marker_response(str(result.get("answer", "")))
+        if model_redirect is not None:
+            logger.info("status=redirect route=%s question_length=%d", model_redirect["route"], len(question))
+            _append_audit_event({
+                "request_id": request_id, "status": "redirect", "route": model_redirect["route"],
+                "question_length": len(question),
+            })
+            return AskResponse(
+                answer=model_redirect["answer"], sources=[], status="redirect", sources_kind="related",
+                cached=False, links=model_redirect["links"],
+            )
         if raw_status in {"not_found", "not_found_model", "not_found_retrieval"}:
             status = "not_found"
         elif raw_status in {"answered", "invalid_citation", "ai_unavailable"}:

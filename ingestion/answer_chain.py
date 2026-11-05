@@ -27,6 +27,7 @@ from ingestion.answer_config import (
 from ingestion.langchain_retriever import NoticeRetriever
 from ingestion.prompt import NOTICE_ANSWER_PROMPT
 from ingestion.provider_config import ProviderRuntimeConfig
+from ingestion.redirects import REDIRECT_CALCULATOR, REDIRECT_TIMETABLE
 
 
 def format_evidence(documents: Sequence[Document]) -> str:
@@ -136,6 +137,13 @@ def _validate_answer(values: dict[str, Any]) -> dict[str, Any]:
         }
         for document in documents
     ]
+    if answer in {REDIRECT_CALCULATOR, REDIRECT_TIMETABLE}:
+        return {
+            "answer": answer,
+            "sources": [],
+            "status": "redirect",
+            "citations_valid": True,
+        }
     if answer == "NOT_FOUND" and not citations:
         return {
             "answer": FRIENDLY_NOT_FOUND_MESSAGE,
@@ -161,6 +169,14 @@ def _validate_generation(values: dict[str, Any]) -> dict[str, Any]:
     status = generation.get("status")
     if status == "generated":
         validated = _validate_answer({"documents": documents, "answer": generation.get("text", "")})
+        if validated["status"] == "redirect":
+            return {
+                **validated,
+                **{key: generation.get(key) for key in (
+                    "provider", "model", "latency_seconds", "token_usage", "attempts",
+                    "retry_wait_seconds", "error_type",
+                )},
+            }
     else:
         sources = [
             {

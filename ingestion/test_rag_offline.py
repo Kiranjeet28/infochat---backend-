@@ -36,6 +36,7 @@ from ingestion.evaluate_chain import (
     cases,
 )
 from ingestion.prompt import SYSTEM_PROMPT_CANARY
+from ingestion.redirects import REDIRECT_CALCULATOR, REDIRECT_TIMETABLE
 from ingestion.load_supabase import _notice_row, notices_missing_published_at
 from ingestion.retrieve import retrieve
 from ingestion.retrieval_config import SIMILARITY_DISTANCE_CUTOFF
@@ -175,10 +176,18 @@ class CitationTests(unittest.TestCase):
         self.assertEqual(result["status"], "invalid_citation")
         self.assertFalse(result["citations_valid"])
 
+    def test_exact_redirect_markers_are_valid_without_citations(self):
+        for marker in (REDIRECT_CALCULATOR, REDIRECT_TIMETABLE):
+            with self.subTest(marker=marker):
+                result = self.validate(marker)
+                self.assertEqual(result["status"], "redirect")
+                self.assertTrue(result["citations_valid"])
+                self.assertEqual(result["answer"], marker)
+
 
 class RetrievalAndRoutingTests(unittest.TestCase):
-    def test_full_evaluation_has_17_cases_and_required_columns(self):
-        self.assertEqual(len(cases()), 17)
+    def test_full_evaluation_has_23_cases_and_required_columns(self):
+        self.assertEqual(len(cases()), 23)
         self.assertEqual(
             RESULT_COLUMNS,
             (
@@ -187,6 +196,15 @@ class RetrievalAndRoutingTests(unittest.TestCase):
                 "needs_manual_fact_check", "fail_reason", "provider", "attempts", "retry_wait_seconds",
             ),
         )
+
+    def test_redirect_evaluation_cases_skip_retrieval_and_model(self):
+        selected = [case for case in evaluate_chain.cases() if case["expected_status"] == "redirect"]
+        self.assertEqual(len(selected), 6)
+        with patch.object(evaluate_chain, "retrieve", side_effect=AssertionError("retrieval called")), \
+             patch.object(evaluate_chain, "generate_answer", side_effect=AssertionError("model called")):
+            results = [evaluate_chain._run_case(case) for case in selected]
+        self.assertTrue(all(row["actual_status"] == "redirect" for row in results))
+        self.assertTrue(all(row["attempts"] == 0 and row["pass/fail"] == "pass" for row in results))
 
     def test_debug_record_contains_raw_text_and_expanded_citations_only(self):
         records = []

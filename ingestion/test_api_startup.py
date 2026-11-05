@@ -96,7 +96,7 @@ class ApiStartupTests(unittest.TestCase):
                 with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
                     response = client.post("/api/ask", json={"question": "When is the exam?"})
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(set(response.json()), {"answer", "sources", "status", "sources_kind", "cached"})
+                self.assertEqual(set(response.json()), {"answer", "sources", "status", "sources_kind", "cached", "links"})
                 self.assertFalse(response.json()["cached"])
                 self.assertEqual(response.json()["status"], "answered")
                 self.assertTrue(response.headers.get("X-Request-ID"))

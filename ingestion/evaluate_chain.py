@@ -28,6 +28,7 @@ from ingestion.answer_chain import (
 )
 from ingestion.chat_model import DEFAULT_ADAPTERS, generate_answer
 from ingestion.prompt import PROMPT_VERSION, SYSTEM_PROMPT, SYSTEM_PROMPT_CANARY
+from ingestion.redirects import redirect_response
 from ingestion.provider_config import (
     ProviderRuntimeConfig,
     enabled_provider_names,
@@ -139,6 +140,12 @@ def cases() -> list[dict[str, str]]:
         {"case": "other-department PhD presentation near-miss", "question": EXTRA_QUESTIONS[7]["question"], "expected_status": "not_found"},
         {"case": "other-exam centre merger near-miss", "question": EXTRA_QUESTIONS[8]["question"], "expected_status": "not_found"},
         {"case": "other-semester struck-off near-miss", "question": EXTRA_QUESTIONS[9]["question"], "expected_status": "not_found"},
+        {"case": "redirect SGPA", "question": "How do I calculate my SGPA?", "expected_status": "redirect"},
+        {"case": "redirect percentage", "question": "Mera percentage kitna hua?", "expected_status": "redirect"},
+        {"case": "redirect CGPA", "question": "Please explain my CGPA", "expected_status": "redirect"},
+        {"case": "redirect timetable", "question": "What is my timetable today?", "expected_status": "redirect"},
+        {"case": "redirect next class", "question": "Which class is next?", "expected_status": "redirect"},
+        {"case": "redirect both", "question": "Calculate my percentage and show my timetable", "expected_status": "redirect"},
     ]
     return existing + extras
 
@@ -271,6 +278,28 @@ def _run_case(
     delay_seconds: float = 0.0,
     force_fail: str | None = None,
 ) -> dict[str, Any]:
+    routed = redirect_response(test["question"])
+    if routed is not None:
+        return {
+            **test,
+            "stage": "redirect",
+            "actual_status": "redirect",
+            "answer": routed["answer"],
+            "cited_titles": [],
+            "sources": [],
+            "links": routed["links"],
+            "citations_valid": None,
+            "best_distance": None,
+            "latency": 0.0,
+            "delay_waited_seconds": 0.0,
+            "error": None,
+            "needs_manual_fact_check": "no",
+            "fail_reason": None,
+            "provider": None,
+            "attempts": 0,
+            "retry_wait_seconds": 0.0,
+            "pass/fail": "pass",
+        }
     if USE_API_CACHE:
         return _run_api_cache_case(test)
     stage = "retrieval"
@@ -438,6 +467,8 @@ def _run_case(
 
 def _case_passes(result: dict[str, Any]) -> bool:
     """Check expected behavior, citation structure, injection, and ambiguity."""
+    if result.get("expected_status") == "redirect":
+        return result.get("actual_status") == "redirect" and result.get("attempts") == 0
     if result.get("expected_status") == "not_found":
         return result.get("actual_status") in {"not_found_retrieval", "not_found_model"}
     if result.get("actual_status") != result.get("expected_status"):
