@@ -1,0 +1,67 @@
+# GitHub disables scheduled workflows in public repositories after 60 days without repository activity; re-enable them by creating repository activity or manually enabling the workflow in Actions.
+name: CascadeIQ ingestion
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Ingestion mode
+        type: choice
+        options: [incremental, full]
+        default: incremental
+        required: true
+      dry_run:
+        description: Do not write to Supabase
+        type: boolean
+        default: true
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cascadeiq-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ingestion/requirements-ingest.txt
+      - uses: actions/cache@v4
+        with:
+          path: models_cache
+          key: fastembed-sentence-transformers-all-MiniLM-L6-v2
+      - name: Install ingestion requirements
+        run: python -m pip install -r ingestion/requirements-ingest.txt
+      - name: Run CascadeIQ ingestion
+        env:
+          NOTICES_API_URL: ${{ vars.NOTICES_API_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EMBEDDING_ALLOW_DOWNLOAD: "1"
+          PIPELINE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'incremental' }}
+          PIPELINE_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: >-
+          python ingestion/run_pipeline.py
+          --mode "$PIPELINE_MODE"
+          $([ "$PIPELINE_DRY_RUN" = "true" ] && printf '%s' '--dry-run')
+          --summary-file pipeline-summary.json
+      - name: Upload run summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cascadeiq-ingest-summary
+          path: pipeline-summary.json
+          retention-days: 7
+      - name: Open the run summary
+        if: failure()
+        run: echo "CascadeIQ ingestion failed; open the run summary for details."
