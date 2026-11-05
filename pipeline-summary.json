@@ -1,0 +1,7 @@
+{
+  "mode": "incremental",
+  "dry_run": true,
+  "failed": 1,
+  "error_type": "RuntimeError",
+  "error": "Notices API warm-up failed after retries; check NOTICES_API_URL and API availability."
+}
