@@ -51,11 +51,18 @@ jobs:
           EMBEDDING_ALLOW_DOWNLOAD: "1"
           PIPELINE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'incremental' }}
           PIPELINE_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
-        run: >-
-          python ingestion/run_pipeline.py
-          --mode "$PIPELINE_MODE"
-          $([ "$PIPELINE_DRY_RUN" = "true" ] && printf '%s' '--dry-run')
-          --summary-file pipeline-summary.json
+        run: |
+          set +e
+          python ingestion/run_pipeline.py \
+            --mode "$PIPELINE_MODE" \
+            $([ "$PIPELINE_DRY_RUN" = "true" ] && printf '%s' '--dry-run') \
+            --summary-file pipeline-summary.json
+          status=$?
+          if [ "$status" -eq 2 ]; then
+            echo "::warning::Pipeline completed with warnings; review the run summary artifact."
+            exit 0
+          fi
+          exit "$status"
       - name: Upload run summary
         if: always()
         uses: actions/upload-artifact@v4

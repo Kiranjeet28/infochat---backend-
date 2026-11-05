@@ -4,6 +4,8 @@ Repository settings: add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` as Actio
 
 Scheduled runs are disabled unless repository variable `INGEST_ENABLED` is exactly `true`. Manual `workflow_dispatch` runs remain available regardless of that variable.
 
+The pipeline exits with code `2` when ingestion completes with warnings; the workflow marks that run complete with a warning annotation and uploads the summary. Exit code `1` remains a hard failure. Failed notice summaries contain only notice IDs and safe failure codes, not notice text or exception details.
+
 To run manually, open **Actions → CascadeIQ ingestion → Run workflow**, choose `incremental` or `full`, and leave dry run enabled for the first manual run. The pipeline summary JSON is uploaded as a seven day artifact; the step summary contains counts and review reason codes by notice ID. Warnings explain an incomplete fetch or a skipped full mode withdrawal (fetch incomplete, threshold exceeded, or missing `withdrawn` column).
 
 For local dry run, set the three values in the process environment or in `backend/.env`, then run from the repository root:

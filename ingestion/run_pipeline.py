@@ -45,15 +45,12 @@ def decide_review_status(notice: dict[str, Any], *, duplicate_hash: bool = False
         reasons.append("source_url_not_https")
     elif not any(parsed_url.hostname == d or parsed_url.hostname.endswith("." + d) for d in ALLOWED_SOURCE_DOMAINS):
         reasons.append("source_domain_not_allowed")
-    date_value = notice.get("published_at") or notice.get("date") or (notice.get("metadata") or {}).get("date")
-    try:
-        published = datetime.fromisoformat(str(date_value).replace("Z", "+00:00"))
-        if published.tzinfo is None:
-            published = published.replace(tzinfo=timezone.utc)
-        if published > datetime.now(timezone.utc):
-            reasons.append("published_at_in_future")
-    except (TypeError, ValueError):
+    date_values = (notice.get("published_at"), notice.get("date"), (notice.get("metadata") or {}).get("date"))
+    published = next((parsed for value in date_values if (parsed := _parse_publication_date(value)) is not None), None)
+    if published is None:
         reasons.append("published_at_invalid")
+    elif published > datetime.now(timezone.utc):
+        reasons.append("published_at_in_future")
     confidence = notice.get("extraction_confidence")
     # validate_notice emits a numeric 0.00–1.00 evidence score, not labels.
     if not isinstance(confidence, (int, float)) or confidence < 0.6:
@@ -65,6 +62,36 @@ def decide_review_status(notice: dict[str, Any], *, duplicate_hash: bool = False
     if duplicate_hash:
         reasons.append("duplicate_hash")
     return ("needs_review", reasons) if reasons else ("ok", [])
+
+
+def _parse_publication_date(value: Any) -> datetime | None:
+    """Parse the ISO and human-readable formats already accepted by extraction."""
+    if isinstance(value, dict):
+        value = value.get("$date") or value.get("date")
+    if value is None:
+        return None
+    candidate = str(value).strip()
+    if not candidate:
+        return None
+    try:
+        parsed = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+    except ValueError:
+        parsed = None
+    if parsed is None:
+        for date_format in (
+            "%B %d, %Y", "%b %d, %Y", "%B %d %Y", "%b %d %Y",
+            "%d %B %Y", "%d %b %Y", "%Y-%m-%d", "%d/%m/%Y",
+            "%m/%d/%Y", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%y",
+            "%m/%d/%y", "%d.%m.%y", "%d-%m-%y",
+        ):
+            try:
+                parsed = datetime.strptime(candidate, date_format)
+                break
+            except ValueError:
+                continue
+    if parsed is not None and parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 class RestStore:
@@ -169,7 +196,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     api_url = api_url or os.environ["NOTICES_API_URL"]
     session = session or requests.Session()
     pages_cap = max_pages or (5 if mode == "incremental" else 200)
-    summary: dict[str, Any] = {"mode":mode,"dry_run":dry_run,"fetched":0,"new":0,"changed":0,"unchanged":0,"superseded":0,"needs_review":{},"length_only":[],"failed":0,"chunks_written":0,"embeddings_written":0,"kb_version_before":None,"kb_version_after":None,"cache_entries_invalidated":0,"warnings":[],"duration_seconds":0}
+    summary: dict[str, Any] = {"mode":mode,"dry_run":dry_run,"fetched":0,"new":0,"changed":0,"unchanged":0,"superseded":0,"needs_review":{},"length_only":[],"failed":0,"failed_notices":{},"chunks_written":0,"embeddings_written":0,"kb_version_before":None,"kb_version_after":None,"cache_entries_invalidated":0,"warnings":[],"duration_seconds":0}
     CURRENT_STAGE = "notices_api_warmup"
     warm_up(session, api_url)
     if store is None:
@@ -234,9 +261,19 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     source_ids: set[str] = set()
     for notice in processed:
         notice_id = str(notice.get("_id", notice.get("notice_id", "")))
-        if not notice_id: summary["failed"] += 1; continue
+        if not notice_id:
+            summary["failed"] += 1
+            summary["failed_notices"]["unknown"] = "missing_notice_id"
+            continue
         if notice.get("ingestion_status") == "failed":
             summary["failed"] += 1
+            status = notice.get("extraction_status")
+            failure_code = {
+                "needs_ocr": "needs_ocr",
+                "pdf_error": "pdf_extraction_error",
+                "no_text_or_pdf": "no_text_or_pdf",
+            }.get(status, "no_usable_text")
+            summary["failed_notices"][notice_id] = failure_code
             continue
         notice["notice_id"] = notice_id
         source_ids.add(notice_id)
@@ -362,6 +399,7 @@ def main(argv: list[str] | None = None) -> int:
             out.write("\n| Mode | Dry run | Fetched | New | Changed | Unchanged | Superseded | Needs review | Failed | Chunks | Embeddings | KB before | KB after | Cache invalidated | Duration (s) |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---:|---:|\n")
             out.write(f"| {args.mode} | {args.dry_run} | {summary.get('fetched',0)} | {summary.get('new',0)} | {summary.get('changed',0)} | {summary.get('unchanged',0)} | {summary.get('superseded',0)} | {len(summary.get('needs_review',{}))} | {summary.get('failed',0)} | {summary.get('chunks_written',0)} | {summary.get('embeddings_written',0)} | {summary.get('kb_version_before')} | {summary.get('kb_version_after')} | {summary.get('cache_entries_invalidated',0)} | {summary.get('duration_seconds',0)} |\n")
             for notice_id, reasons in summary.get("needs_review",{}).items(): out.write(f"\n- `{notice_id}`: {', '.join(reasons)}\n")
+            for notice_id, reason in summary.get("failed_notices",{}).items(): out.write(f"\n- Failed `{notice_id}`: {reason}\n")
             for warning in summary.get("warnings",[]): out.write(f"\n- Warning: {warning}\n")
     return code
 

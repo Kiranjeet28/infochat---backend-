@@ -76,6 +76,12 @@ class RunPipelineOfflineTests(unittest.TestCase):
         self.assertIn("source_url_not_https",reasons)
         self.assertIn("published_at_invalid",reasons)
 
+    def test_review_gate_accepts_extraction_date_formats_and_valid_fallback(self):
+        base={"title":"T","url":"https://erp.gndec.ac.in/a","text":"x"*40,"extraction_confidence":.6}
+        for date_value in ("September 2, 2026", "02/09/2026", "2026-09-02T00:00:00Z"):
+            self.assertEqual(pipeline.decide_review_status(dict(base,published_at=date_value))[0],"ok")
+        self.assertEqual(pipeline.decide_review_status(dict(base,published_at="invalid",date="September 2, 2026"))[0],"ok")
+
     def test_domain_accepts_subdomains_and_rejects_suffix_attack(self):
         base={"title":"T","published_at":"2026-10-01T00:00:00Z","text":"x"*40,"extraction_confidence":.6}
         self.assertEqual(pipeline.decide_review_status(dict(base,url="https://gndec.ac.in/a"))[0],"ok")
