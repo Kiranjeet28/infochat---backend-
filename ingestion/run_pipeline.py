@@ -208,7 +208,13 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
             metadata = dict(notice.get("metadata") or {})
             metadata.setdefault("category", notice.get("category"))
             metadata.setdefault("department", notice.get("department"))
-            metadata.setdefault("date", notice.get("published_at") or notice.get("date"))
+            link_date = notice.get("published_at") or notice.get("date")
+            if link_date:
+                try:
+                    link_date = datetime.fromisoformat(str(link_date).replace("Z", "+00:00")).date().isoformat()
+                except ValueError:
+                    pass
+            metadata.setdefault("date", link_date)
             notice["metadata"] = metadata
         linked = link_notice_versions(candidates + processed)
         linked_by_id = {str(n.get("_id")): n for n in linked if not n.get("_stored_candidate")}
