@@ -204,6 +204,12 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
                 "metadata": {"category": row.get("category"), "department": row.get("department"), "date": row.get("published_at")},
                 "text": "", "content_hash": row.get("content_hash"), "extraction_confidence": 1.0,
                 "version_status": "no_match", "_stored_candidate": True})
+        for notice in processed:
+            metadata = dict(notice.get("metadata") or {})
+            metadata.setdefault("category", notice.get("category"))
+            metadata.setdefault("department", notice.get("department"))
+            metadata.setdefault("date", notice.get("published_at") or notice.get("date"))
+            notice["metadata"] = metadata
         linked = link_notice_versions(candidates + processed)
         linked_by_id = {str(n.get("_id")): n for n in linked if not n.get("_stored_candidate")}
         processed = [linked_by_id.get(str(n.get("_id", n.get("notice_id"))), n) for n in processed]

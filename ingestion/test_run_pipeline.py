@@ -55,7 +55,7 @@ class RunPipelineOfflineTests(unittest.TestCase):
 
     def test_full_fetches_through_empty_page_and_honors_cap(self):
         api=FakeAPI({1:[self.notice()],2:[]}); store=FakeStore()
-        with patch.object(pipeline,"warm_up"):
+        with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"):
             _, summary=pipeline.run(mode="full",max_pages=3,api_url="https://api.example.test",store=store,session=api,processor=processed)
         self.assertEqual(api.calls,[1,2]); self.assertTrue(summary["fetched"])
 
