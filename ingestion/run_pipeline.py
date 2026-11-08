@@ -31,6 +31,7 @@ from ingestion.chunk_notices import (  # noqa: E402
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter  # noqa: E402
 
+API_CONNECT_TIMEOUT = 10
 API_TIMEOUT = 90
 WARMUP_ATTEMPTS = 4
 WARMUP_TOTAL_SECONDS = 240
@@ -159,7 +160,7 @@ class RestStore:
 
 
 def fetch_page(session: Any, api_url: str, page: int) -> list[dict[str, Any]]:
-    response = session.get(api_url, params={"page":page,"pageSize":9,"sort":"latest"}, timeout=API_TIMEOUT)
+    response = session.get(api_url, params={"page":page,"pageSize":9,"sort":"latest"}, timeout=(API_CONNECT_TIMEOUT, API_TIMEOUT))
     response.raise_for_status()
     items = response.json().get("data", {}).get("items", [])
     stamp = datetime.now(timezone.utc).isoformat()
@@ -174,7 +175,7 @@ def warm_up(session: Any, api_url: str) -> None:
     last_error: Exception | None = None
     for attempt in range(WARMUP_ATTEMPTS):
         try:
-            response = session.get(api_url, params={"page":1,"pageSize":1,"sort":"latest"}, timeout=API_TIMEOUT)
+            response = session.get(api_url, params={"page":1,"pageSize":1,"sort":"latest"}, timeout=(API_CONNECT_TIMEOUT, API_TIMEOUT))
             response.raise_for_status()
             return
         except requests.RequestException as error:

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import hashlib
 import re
+import socket
 from collections import Counter
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import pdfplumber
 import requests
@@ -19,6 +21,11 @@ from bs4 import BeautifulSoup
 INPUT_PATH = Path(__file__).parent / "data" / "notices.json"
 OUTPUT_PATH = Path(__file__).parent / "data" / "notices_extracted.json"
 REQUEST_TIMEOUT_SECONDS = 60
+MAX_REDIRECTS = 3
+MAX_PDF_BYTES = 25 * 1024 * 1024
+MAX_HTML_BYTES = 5 * 1024 * 1024
+PDF_CONTENT_TYPES = ("application/pdf", "application/x-pdf", "application/octet-stream", "binary/octet-stream")
+HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 PAGE_NUMBER = re.compile(r"^(?:page\s*)?\d+(?:\s*(?:of|/)\s*\d+)?$", re.IGNORECASE)
 DATE_PATTERN = re.compile(
     r"\b(?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+20\d{2})?|"
@@ -64,6 +71,64 @@ REPLACEMENT_CUE = re.compile(
     r"dates? extended|extension|re-opening|reopening|corrected)\b",
     re.IGNORECASE,
 )
+
+
+class UnsafeFetchError(requests.RequestException):
+    """A notice link was refused by the fetch safety rules."""
+
+
+def _validate_fetch_url(url: str) -> None:
+    """Allow only https URLs whose host resolves to public addresses."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise UnsafeFetchError("only https URLs are fetched")
+    try:
+        addresses = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror:
+        raise UnsafeFetchError("host does not resolve") from None
+    for address in addresses:
+        if not ipaddress.ip_address(address[4][0].split("%")[0]).is_global:
+            raise UnsafeFetchError("private or internal address blocked")
+
+
+def safe_get(url: str, *, accept: tuple[str, ...], max_bytes: int, magic: bytes | None = None,
+             timeout: int = REQUEST_TIMEOUT_SECONDS) -> requests.Response:
+    """GET a notice link: https and public hosts only, capped redirects, size and content type.
+
+    Each redirect hop is validated again. Residual risk: DNS is resolved once for the
+    check and again by requests, so a rebinding host could still slip through.
+    """
+    current = url
+    for _ in range(MAX_REDIRECTS + 1):
+        _validate_fetch_url(current)
+        response = requests.get(current, timeout=timeout, allow_redirects=False, stream=True)
+        try:
+            if response.status_code in (301, 302, 303, 307, 308):
+                location = response.headers.get("location")
+                if not location:
+                    raise UnsafeFetchError("redirect without a location")
+                current = urljoin(current, location)
+                continue
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+            if content_type and content_type not in accept:
+                raise UnsafeFetchError("unsupported content type")
+            if int(response.headers.get("content-length") or 0) > max_bytes:
+                raise UnsafeFetchError("response too large")
+            chunks, total = [], 0
+            for chunk in response.iter_content(65536):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise UnsafeFetchError("response too large")
+                chunks.append(chunk)
+            data = b"".join(chunks)
+            if magic and magic not in data[:1024]:
+                raise UnsafeFetchError("unsupported file type")
+            response._content = data
+            return response
+        finally:
+            response.close()
+    raise UnsafeFetchError("too many redirects")
 
 
 def clean_text(text: str, page_texts: list[str] | None = None) -> str:
@@ -120,8 +185,7 @@ def _text_and_pdf_link(notice: dict) -> tuple[str, str | None]:
     # elsewhere for the actual details.
     if notice_url:
         try:
-            response = requests.get(notice_url, timeout=REQUEST_TIMEOUT_SECONDS)
-            response.raise_for_status()
+            response = safe_get(notice_url, accept=HTML_CONTENT_TYPES, max_bytes=MAX_HTML_BYTES)
             page = BeautifulSoup(response.text, "html.parser")
             editor = page.select_one(".ql-editor")
             if editor:
@@ -173,8 +237,7 @@ def _is_link_instructions(text: str) -> bool:
 
 
 def _extract_pdf(pdf_url: str) -> tuple[str, str]:
-    response = requests.get(pdf_url, timeout=REQUEST_TIMEOUT_SECONDS)
-    response.raise_for_status()
+    response = safe_get(pdf_url, accept=PDF_CONTENT_TYPES, max_bytes=MAX_PDF_BYTES, magic=b"%PDF")
     with pdfplumber.open(BytesIO(response.content)) as pdf:
         pages = [(page.extract_text() or "") for page in pdf.pages]
     text = clean_text("\n".join(pages), page_texts=pages)

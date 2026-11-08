@@ -8,6 +8,7 @@ from ingestion.compat_uuid_utils import ensure_uuid_utils
 
 ensure_uuid_utils()
 
+from collections import deque
 from contextlib import asynccontextmanager
 import logging
 from logging.handlers import RotatingFileHandler
@@ -87,6 +88,46 @@ def _with_cors(application, origins: list[str] | None = None):
         expose_headers=["X-Request-ID"],
         max_age=600,
     )
+
+
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_rate_hits: dict[str, deque] = {}
+_rate_lock = Lock()
+
+
+def _rate_limit_per_minute() -> int:
+    """Requests per client per minute for /api/ask; 0 disables the limit."""
+    try:
+        return max(0, int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")))
+    except ValueError:
+        return 30
+
+
+def _client_key(request: Request) -> str:
+    if os.getenv("RATE_LIMIT_TRUST_FORWARDED") == "1":
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        if forwarded:
+            return forwarded
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limit_retry_after(request: Request) -> int | None:
+    """Return seconds to wait if this client is over its limit, else record the hit."""
+    limit = _rate_limit_per_minute()
+    if not limit:
+        return None
+    now = time.monotonic()
+    with _rate_lock:
+        hits = _rate_hits.setdefault(_client_key(request), deque())
+        while hits and now - hits[0] > _RATE_LIMIT_WINDOW_SECONDS:
+            hits.popleft()
+        if len(hits) >= limit:
+            return max(1, int(_RATE_LIMIT_WINDOW_SECONDS - (now - hits[0])) + 1)
+        hits.append(now)
+        if len(_rate_hits) > 10000:  # drop idle clients so the table cannot grow without bound
+            for key in [k for k, v in _rate_hits.items() if not v or now - v[-1] > _RATE_LIMIT_WINDOW_SECONDS]:
+                _rate_hits.pop(key, None)
+    return None
 
 
 class _RequestIdFilter(logging.Filter):
@@ -220,6 +261,13 @@ def strip_markdown(text: str) -> str:
 @app.post("/api/ask", response_model=AskResponse)
 def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
     """Answer a question from current notices and return its source cards."""
+    retry_after = _rate_limit_retry_after(request)
+    if retry_after is not None:
+        return JSONResponse(
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+            content={"status": "error", "message": "Too many requests. Please wait a moment and try again."},
+        )
     question = body.question.strip()
     if not question:
         return JSONResponse(
