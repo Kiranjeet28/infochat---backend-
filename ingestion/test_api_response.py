@@ -8,6 +8,10 @@ from unittest.mock import patch
 
 from starlette.requests import Request
 
+from ingestion.compat_uuid_utils import ensure_uuid_utils
+
+ensure_uuid_utils()  # Windows Application Control workaround; before langchain imports
+
 import api
 
 

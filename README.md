@@ -111,6 +111,10 @@ Run the FastAPI service from the repository root:
 uvicorn api:app --reload
 ```
 
+On Windows, double-click `run.bat` to start the same service. It uses
+`ingestion\.venv` when available and opens the API at
+`http://127.0.0.1:8000`.
+
 Send `POST /api/ask` with a JSON body such as
 `{"question":"When is the makeup examination?"}`. Questions must contain
 1–1000 characters. The response includes `answer`, `sources`, and a `status` of

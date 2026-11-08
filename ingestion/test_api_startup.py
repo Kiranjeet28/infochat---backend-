@@ -101,6 +101,127 @@ class ApiStartupTests(unittest.TestCase):
                 self.assertEqual(response.json()["status"], "answered")
                 self.assertTrue(response.headers.get("X-Request-ID"))
 
+    def test_cors_allows_configured_frontend_origin_and_exposes_request_id(self):
+        for origin in ("http://localhost:5173", "http://127.0.0.1:5173"):
+            with self.subTest(origin=origin):
+                env_patch, model_patch, chain_patch = self._client()
+                with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
+                    response = client.get("/health", headers={"Origin": origin})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.headers["access-control-allow-origin"], origin)
+                self.assertEqual(response.headers["access-control-expose-headers"], "X-Request-ID")
+                self.assertTrue(response.headers["X-Request-ID"])
+
+    def test_cors_preflight_accepts_both_vite_origins(self):
+        for origin in ("http://127.0.0.1:5173", "http://localhost:5173"):
+            with self.subTest(origin=origin):
+                env_patch, model_patch, chain_patch = self._client()
+                headers = {
+                    "Origin": origin,
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                }
+                with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
+                    response = client.options("/api/ask", headers=headers)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
+                self.assertIn("POST", response.headers.get("access-control-allow-methods", ""))
+                self.assertIn("content-type", response.headers.get("access-control-allow-headers", "").lower())
+                self.assertEqual(response.headers.get("access-control-max-age"), "600")
+
+    def test_cors_preflight_accepts_all_explicitly_allowed_headers(self):
+        env_patch, model_patch, chain_patch = self._client()
+        headers = {
+            "Origin": "http://127.0.0.1:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,accept,x-request-id",
+        }
+        with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
+            response = client.options("/api/ask", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        allowed_headers = response.headers.get("access-control-allow-headers", "").lower()
+        for header in ("content-type", "accept", "x-request-id"):
+            self.assertIn(header, allowed_headers)
+
+    def test_cors_preflight_rejects_untrusted_origin(self):
+        env_patch, model_patch, chain_patch = self._client()
+        headers = {
+            "Origin": "http://evil.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        }
+        with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
+            response = client.options("/api/ask", headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("access-control-allow-origin", response.headers)
+
+    def test_post_from_allowed_origin_exposes_request_id(self):
+        class FakeChain:
+            async def ainvoke(self, _values):
+                return {
+                    "answer": "A verified answer [1]", "sources": [{"title": "Notice"}],
+                    "status": "answered", "citations_valid": True,
+                }
+
+        env_patch, model_patch, chain_patch = self._client(chain=FakeChain())
+        with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
+            response = client.post(
+                "/api/ask", json={"question": "What does the notice say?"},
+                headers={"Origin": "http://127.0.0.1:5173"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://127.0.0.1:5173")
+        self.assertIn("x-request-id", response.headers.get("access-control-expose-headers", "").lower())
+
+    def test_cors_headers_are_added_to_catch_all_500(self):
+        async def raise_unhandled():
+            raise RuntimeError("test-only failure")
+
+        path = "/_test/cors-unhandled-error"
+        api.fastapi_app.add_api_route(path, raise_unhandled, methods=["GET"])
+        env_patch, model_patch, chain_patch = self._client()
+        try:
+            with env_patch, model_patch, chain_patch, TestClient(api.app, raise_server_exceptions=False) as client:
+                response = client.get(path, headers={"Origin": "http://localhost:5173"})
+        finally:
+            api.fastapi_app.router.routes = [route for route in api.fastapi_app.router.routes if getattr(route, "path", None) != path]
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://localhost:5173")
+
+    def test_cors_headers_are_added_to_empty_question_422(self):
+        env_patch, model_patch, chain_patch = self._client()
+        with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
+            response = client.post(
+                "/api/ask", json={"question": ""},
+                headers={"Origin": "http://127.0.0.1:5173"},
+            )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://127.0.0.1:5173")
+
+    def test_cors_origins_trim_spaces_and_trailing_slashes(self):
+        with patch.dict(os.environ, {"CORS_ALLOWED_ORIGINS": " *, http://example.test/ , , http://localhost:5173/ "}):
+            origins = api._cors_allowed_origins()
+            self.assertEqual(origins, ["http://example.test", "http://localhost:5173"])
+            test_app = api._with_cors(api.fastapi_app, origins)
+            env_patch, model_patch, chain_patch = self._client()
+            headers = {
+                "Origin": "http://example.test",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            }
+            with env_patch, model_patch, chain_patch, TestClient(test_app) as client:
+                response = client.options("/api/ask", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://example.test")
+
+    def test_cors_does_not_allow_unconfigured_origin(self):
+        env_patch, model_patch, chain_patch = self._client()
+        with env_patch, model_patch, chain_patch, TestClient(api.app) as client:
+            response = client.get("/health", headers={"Origin": "http://evil.example"})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("access-control-allow-origin", response.headers)
+        self.assertNotIn("access-control-expose-headers", response.headers)
+
     def test_retrieval_not_found_status_is_normalized_to_api_contract(self):
         class FakeChain:
             async def ainvoke(self, _values):
@@ -156,6 +277,25 @@ class ApiStartupTests(unittest.TestCase):
                 self.assertIn("question", empty.json()["message"])
                 self.assertIn(too_long.status_code, {400, 422})
                 self.assertIn("1000", too_long.json()["message"])
+
+
+class CorsConfigurationTests(unittest.TestCase):
+    def test_defaults_are_exact_and_cors_is_outermost_with_explicit_policy(self):
+        self.assertEqual(api._cors_allowed_origins(), [
+            "http://127.0.0.1:5173", "http://localhost:5173",
+            "http://127.0.0.1:3000", "http://localhost:3000",
+        ])
+        self.assertIsInstance(api.app, api.CORSMiddleware)
+        self.assertEqual(api.app.allow_methods, ["GET", "POST", "OPTIONS"])
+        self.assertTrue({"accept", "content-type", "x-request-id"}.issubset(set(api.app.allow_headers)))
+        self.assertNotIn("*", api.app.allow_headers)
+        self.assertFalse(api.app.allow_credentials)
+        self.assertEqual(api.app.simple_headers.get("Access-Control-Expose-Headers"), "X-Request-ID")
+        self.assertEqual(api.app.preflight_headers.get("Access-Control-Max-Age"), "600")
+
+    def test_configured_origin_parser_ignores_empty_and_wildcard_entries(self):
+        with patch.dict(os.environ, {"CORS_ALLOWED_ORIGINS": " , *, http://127.0.0.1:5173/ ,,"}):
+            self.assertEqual(api._cors_allowed_origins(), ["http://127.0.0.1:5173"])
 
 
 if __name__ == "__main__":

@@ -14,6 +14,10 @@ import tempfile
 import time
 from unittest.mock import patch
 
+from ingestion.compat_uuid_utils import ensure_uuid_utils
+
+ensure_uuid_utils()  # Windows Application Control workaround; before langchain imports
+
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 

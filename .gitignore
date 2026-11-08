@@ -5,3 +5,7 @@
 /models_cache/
 models_cache/
 logs/
+/inference_cache/
+/ingestion/.env
+/ingestion/.env.*
+/qa_blackbox
