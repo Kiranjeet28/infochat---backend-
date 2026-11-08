@@ -9,3 +9,4 @@ logs/
 /ingestion/.env
 /ingestion/.env.*
 /qa_blackbox
+/qa 

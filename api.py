@@ -30,7 +30,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ingestion.answer_chain import build_answer_chain
-from ingestion.answer_chain import extract_citations
+from ingestion.answer_chain import extract_citations, renumber_citations
 from ingestion.answer_config import plain_text_answers_enabled
 from ingestion.cache_config import cache_enabled, cache_ttl_seconds
 from ingestion.cache_store import (
@@ -341,6 +341,10 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
         if citations_valid:
             cited_indexes = list(dict.fromkeys(citations))
             sources = [retrieved_sources[number - 1] for number in cited_indexes]
+            # Sources are trimmed to the cited ones, so the answer's [n] must follow.
+            answer = renumber_citations(
+                answer, {old: new for new, old in enumerate(cited_indexes, 1)}
+            )
             sources_kind = "cited"
         else:
             sources = retrieved_sources

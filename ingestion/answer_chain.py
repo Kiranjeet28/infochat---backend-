@@ -125,6 +125,27 @@ def extract_citations(text: str) -> tuple[list[int], bool]:
     return citations, syntax_valid
 
 
+def renumber_citations(text: str, mapping: dict[int, int]) -> str:
+    """Rewrite citation tokens so old source numbers become their new positions."""
+
+    def replace(match: re.Match[str]) -> str:
+        group = match.group(0)[1:-1]
+        is_range = "-" in group
+        if is_range:
+            start, end = (int(part) for part in group.split("-", 1))
+            old = list(range(start, end + 1))
+        else:
+            old = [int(part) for part in group.split(",")]
+        new = [mapping.get(number, number) for number in old]
+        if is_range and len(new) > 1 and new == list(range(new[0], new[0] + len(new))):
+            return f"[{new[0]}-{new[-1]}]"
+        if not is_range and len(new) <= 2:
+            return "[" + ", ".join(str(number) for number in new) + "]"
+        return "".join(f"[{number}]" for number in new)
+
+    return _CITATION_TOKEN_PATTERN.sub(replace, text)
+
+
 def _validate_answer(values: dict[str, Any]) -> dict[str, Any]:
     """Reject answers without citations or with citations outside retrieved evidence."""
     documents: Sequence[Document] = values["documents"]

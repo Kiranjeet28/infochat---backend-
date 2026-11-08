@@ -62,6 +62,32 @@ class ApiResponseTests(unittest.TestCase):
         self.assertEqual([source.title for source in response.sources], ["second", "first"])
         self.assertEqual(response.sources_kind, "cited")
 
+    def test_citations_are_renumbered_to_match_trimmed_sources(self):
+        response = self.call_api({
+            "answer": "Results online [1]; dates [3].",
+            "sources": [self.source("first"), self.source("second"), self.source("third")],
+            "status": "answered",
+            "citations_valid": True,
+        })
+        self.assertEqual([source.title for source in response.sources], ["first", "third"])
+        self.assertEqual(response.answer, "Results online [1]; dates [2].")
+
+        response = self.call_api({
+            "answer": "Second [2], then first [1], and second again [2].",
+            "sources": [self.source("first"), self.source("second"), self.source("related")],
+            "status": "answered",
+            "citations_valid": True,
+        })
+        self.assertEqual(response.answer, "Second [1], then first [2], and second again [1].")
+
+    def test_renumber_citations_handles_groups_and_ranges(self):
+        from ingestion.answer_chain import renumber_citations
+
+        self.assertEqual(renumber_citations("x [2, 4] y", {2: 1, 4: 2}), "x [1, 2] y")
+        self.assertEqual(renumber_citations("x [3-5] y", {3: 1, 4: 2, 5: 3}), "x [1-3] y")
+        self.assertEqual(renumber_citations("x [3-5] y", {3: 3, 4: 1, 5: 2}), "x [3][1][2] y")
+        self.assertEqual(renumber_citations("keep [note] 2026 [x]", {}), "keep [note] 2026 [x]")
+
     def test_not_found_returns_related_sources(self):
         response = self.call_api({
             "answer": "The available notices do not establish this.",

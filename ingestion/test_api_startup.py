@@ -220,7 +220,9 @@ class ApiStartupTests(unittest.TestCase):
             response = client.get("/health", headers={"Origin": "http://evil.example"})
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("access-control-allow-origin", response.headers)
-        self.assertNotIn("access-control-expose-headers", response.headers)
+        # Starlette adds Expose-Headers to any response with an Origin header; without
+        # allow-origin the browser ignores it, so only allow-origin/credentials matter.
+        self.assertNotIn("access-control-allow-credentials", response.headers)
 
     def test_retrieval_not_found_status_is_normalized_to_api_contract(self):
         class FakeChain:
