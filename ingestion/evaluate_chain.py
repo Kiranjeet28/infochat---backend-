@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from datetime import datetime
 import json
+import math
 import os
 import re
 import sys
+from statistics import median
 import time
 from pathlib import Path
 from typing import Any
@@ -15,6 +18,12 @@ from typing import Any
 # Support direct execution from the backend root as well as module execution.
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Workaround for the Windows Application Control block on uuid_utils; must run
+# before any langchain import.
+from ingestion.compat_uuid_utils import ensure_uuid_utils
+
+ensure_uuid_utils()
 
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
@@ -36,9 +45,16 @@ from ingestion.provider_config import (
 )
 from ingestion.retrieve import retrieve
 from ingestion.test_search import TESTS
+from ingestion.validate_golden import validate_payload
 
 
 USE_API_CACHE = False
+GOLDEN_TYPES = {"answerable", "near_miss", "no_answer", "paraphrase", "redirect", "adversarial"}
+DEFAULT_GOLDEN_THRESHOLDS = {
+    "status_match_rate": 0.90,
+    "freshness_incidents": 0,
+    "no_answer_correctness_rate": 1.0,
+}
 
 
 def _run_api_cache_case(test: dict[str, str]) -> dict[str, Any]:
@@ -79,6 +95,8 @@ def _run_api_cache_case(test: dict[str, str]) -> dict[str, Any]:
         "cited_titles": cited_titles, "best_distance": None, "latency": 0.0,
         "delay_waited_seconds": 0.0, "error": None, "provider": None,
         "model": None, "attempts": 0, "retry_wait_seconds": 0.0,
+        "cached": bool(getattr(response, "cached", False)) if not hasattr(response, "body") else bool(payload.get("cached", False)),
+        "model_call_latency": 0.0,
         "needs_manual_fact_check": "yes" if sources else "no",
     }
     row["pass/fail"] = "pass" if _case_passes(row) else "fail"
@@ -153,7 +171,7 @@ def cases() -> list[dict[str, str]]:
 def _document(row: dict[str, Any]) -> Document:
     metadata = {
         key: row.get(key)
-        for key in ("notice_id", "title", "published_at", "source_url", "chunk_id", "category")
+        for key in ("notice_id", "title", "published_at", "source_url", "chunk_id", "category", "superseded_by", "withdrawn", "review_status")
         if row.get(key) is not None
     }
     return Document(page_content=row.get("chunk_text") or "", metadata=metadata)
@@ -291,6 +309,7 @@ def _run_case(
             "citations_valid": None,
             "best_distance": None,
             "latency": 0.0,
+            "model_call_latency": 0.0,
             "delay_waited_seconds": 0.0,
             "error": None,
             "needs_manual_fact_check": "no",
@@ -298,6 +317,7 @@ def _run_case(
             "provider": None,
             "attempts": 0,
             "retry_wait_seconds": 0.0,
+            "cached": False,
             "pass/fail": "pass",
         }
     if USE_API_CACHE:
@@ -330,6 +350,7 @@ def _run_case(
                 "citations_valid": None,
                 "best_distance": best_distance,
                 "latency": round(retrieval_latency, 3),
+                "model_call_latency": 0.0,
                 "delay_waited_seconds": 0.0,
                 "error": None,
                 "needs_manual_fact_check": "no",
@@ -337,6 +358,8 @@ def _run_case(
                 "provider": None,
                 "attempts": 0,
                 "retry_wait_seconds": 0.0,
+                "cached": False,
+                "retrieved_titles": [],
             }
             result["pass/fail"] = "pass" if test["expected_status"] == "not_found" else "fail"
             result["fail_reason"] = None if result["pass/fail"] == "pass" else "retrieval returned no chunks"
@@ -345,7 +368,7 @@ def _run_case(
             return result
 
         sources = [
-            {key: document.metadata.get(key) for key in ("notice_id", "title", "published_at", "source_url")}
+            {key: document.metadata.get(key) for key in ("notice_id", "title", "published_at", "source_url", "superseded_by", "withdrawn", "review_status")}
             for document in documents
         ]
         stage = "model"
@@ -406,12 +429,15 @@ def _run_case(
             "citations_valid": citations_valid,
             "best_distance": best_distance,
             "latency": round(retrieval_latency + provider_latency, 3),
+            "model_call_latency": round(model_elapsed, 3),
+            "retrieved_titles": [source.get("title") for source in sources if source.get("title")],
             "delay_waited_seconds": round(delay_waited_seconds, 3),
             "error": {"exception_type": result.get("error_type")} if result.get("error_type") else None,
             "provider": result.get("provider"),
             "model": result.get("model"),
             "attempts": result.get("attempts", 0),
             "retry_wait_seconds": result.get("retry_wait_seconds", 0.0),
+            "cached": False,
         }
         passed = _case_passes(result_row)
         result_row["pass/fail"] = "pass" if passed else "fail"
@@ -452,6 +478,8 @@ def _run_case(
             "citations_valid": False,
             "best_distance": best_distance,
             "latency": round(retrieval_latency + provider_latency, 3),
+            "model_call_latency": round(provider_latency, 3),
+            "retrieved_titles": [source.get("title") for source in sources if source.get("title")],
             "delay_waited_seconds": round(delay_waited_seconds, 3),
             "error": _safe_error(error),
             "pass/fail": "fail",
@@ -461,6 +489,7 @@ def _run_case(
             "model": None,
             "attempts": 0,
             "retry_wait_seconds": 0.0,
+            "cached": False,
         }
         return failure
 
@@ -540,6 +569,309 @@ def _fail_reason(result: dict[str, Any], error_type: str | None) -> str | None:
     return "actual status or answer behavior did not match expectation"
 
 
+def _normalize_fact(value: str) -> str:
+    normalized = normalize_answer(value).casefold()
+    return " ".join(re.findall(r"[a-z0-9]+", normalized))
+
+
+def _status_matches(expected: str, actual: str) -> bool:
+    normalized_actual = "not_found" if actual in {"not_found", "not_found_retrieval", "not_found_model"} else actual
+    return normalized_actual == expected
+
+
+def _evaluate_golden_case(
+    case: dict[str, Any], result: dict[str, Any],
+    *, provider_config: ProviderRuntimeConfig | None,
+) -> dict[str, Any]:
+    expected_titles = [str(title) for title in case.get("expected_notice_titles", [])]
+    expected = {title.strip().casefold() for title in expected_titles}
+    if "retrieved_titles" in result:
+        retrieved = result.get("retrieved_titles") or []
+    else:
+        retrieved = [source.get("title") for source in result.get("sources", []) if source.get("title")]
+    retrieved_norm = [str(title).strip().casefold() for title in retrieved if title]
+    cited = [str(title).strip().casefold() for title in result.get("cited_titles", []) if title]
+    citation_correctness = all(title in expected for title in cited)
+    if expected_titles and result.get("expected_status") == "answered":
+        citation_correctness = bool(cited) and citation_correctness
+    answer = _normalize_fact(result.get("answer") or "")
+    facts = [_normalize_fact(fact) for fact in case.get("must_contain_facts", [])]
+    fact_match: bool | str = all(fact in answer for fact in facts) if facts else "needs manual check"
+    cited_sources = [
+        source for source in result.get("sources", [])
+        if source.get("title") and str(source.get("title")).strip().casefold() in cited
+    ]
+    freshness_incident = any(
+        bool(source.get("superseded_by")) or source.get("withdrawn") is True
+        for source in cited_sources
+    )
+    expected_status = case["expected_status"]
+    status_match = _status_matches(expected_status, result.get("actual_status", "error"))
+    retrieval_measured = result.get("stage") != "api_cache"
+    top1_hit = ((retrieved_norm[0] in expected) if retrieved_norm else False) if expected and retrieval_measured else None
+    top5_hit = any(title in expected for title in retrieved_norm[:5]) if expected and retrieval_measured else None
+    no_answer_correctness = status_match if expected_status == "not_found" else None
+    redirect_correctness = status_match if expected_status == "redirect" else None
+    providers = enabled_provider_names(provider_config) if provider_config else ()
+    fallback = bool(result.get("provider") and providers and result["provider"] != providers[0])
+    result.update({
+        "id": case["id"], "type": case["type"],
+        "expected_notice_titles": expected_titles,
+        "status_match": status_match, "top1_retrieval_hit": top1_hit,
+        "top5_retrieval_hit": top5_hit,
+        "citation_correctness": citation_correctness, "fact_match": fact_match,
+        "no_answer_correctness": no_answer_correctness,
+        "redirect_correctness": redirect_correctness,
+        "freshness_incident": freshness_incident,
+        "model_call_latency": result.get("model_call_latency", 0.0),
+        "cached": bool(result.get("cached", False)), "fallback": fallback,
+    })
+    passed = (
+        status_match and citation_correctness and fact_match is not False
+        and top5_hit is not False and not freshness_incident
+        and no_answer_correctness is not False and redirect_correctness is not False
+        and not (case["type"] == "adversarial" and _reveals_prompt(result.get("answer") or ""))
+    )
+    result["pass/fail"] = "pass" if passed else "fail"
+    return result
+
+
+def _metric_rate(rows: list[dict[str, Any]], key: str) -> float | None:
+    values = [row.get(key) for row in rows if isinstance(row.get(key), bool)]
+    return sum(values) / len(values) if values else None
+
+
+def _percentile(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    return round(ordered[max(0, math.ceil(percentile * len(ordered)) - 1)], 3)
+
+
+def _summarize_golden(results: list[dict[str, Any]], repeat: int) -> dict[str, Any]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in results:
+        grouped.setdefault(row["type"], []).append(row)
+
+    def metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        latencies = [
+            float(row["model_call_latency"]) for row in rows
+            if row.get("model_call_latency") is not None and float(row["model_call_latency"]) > 0
+        ]
+        calls = [row for row in rows if int(row.get("attempts", 0)) > 0]
+        return {
+            "cases": len(rows),
+            "status_match_rate": _metric_rate(rows, "status_match"),
+            "retrieval_top1_hit_rate": _metric_rate(rows, "top1_retrieval_hit"),
+            "retrieval_top5_hit_rate": _metric_rate(rows, "top5_retrieval_hit"),
+            "citation_correctness_rate": _metric_rate(rows, "citation_correctness"),
+            "no_answer_correctness_rate": _metric_rate(rows, "no_answer_correctness"),
+            "redirect_correctness_rate": _metric_rate(rows, "redirect_correctness"),
+            "fact_match_rate": _metric_rate(rows, "fact_match"),
+            "freshness_incidents": sum(bool(row.get("freshness_incident")) for row in rows),
+            "latency_median": round(median(latencies), 3) if latencies else None,
+            "latency_p95": _percentile(latencies, 0.95),
+            "fallback_rate": _metric_rate(calls, "fallback"),
+            "cache_hit_rate": _metric_rate(rows, "cached"),
+        }
+
+    by_type = {kind: metrics(rows) for kind, rows in sorted(grouped.items())}
+    unstable = []
+    if repeat > 1:
+        for case_id in dict.fromkeys(row["id"] for row in results):
+            cases = [row for row in results if row["id"] == case_id]
+            if len({(row.get("actual_status"), row.get("pass/fail")) for row in cases}) > 1:
+                unstable.append(case_id)
+    return {"overall": metrics(results), "by_type": by_type, "unstable_cases": unstable}
+
+
+def _detect_regressions(previous: list[dict[str, Any]], current: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+    def passed_by_id(rows: list[dict[str, Any]]) -> dict[str, bool]:
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            grouped.setdefault(row["id"], []).append(row)
+        return {case_id: all(row.get("pass/fail") == "pass" for row in items) for case_id, items in grouped.items()}
+    old, new = passed_by_id(previous), passed_by_id(current)
+    common = old.keys() & new.keys()
+    return (
+        sorted(case_id for case_id in common if old[case_id] and not new[case_id]),
+        sorted(case_id for case_id in common if not old[case_id] and new[case_id]),
+    )
+
+
+def _golden_exit_code(summary: dict[str, Any], warnings: list[str]) -> int:
+    values = summary["overall"]
+    failed = (
+        values.get("status_match_rate") is None
+        or values["status_match_rate"] < DEFAULT_GOLDEN_THRESHOLDS["status_match_rate"]
+        or values["freshness_incidents"] > DEFAULT_GOLDEN_THRESHOLDS["freshness_incidents"]
+        or values.get("no_answer_correctness_rate") != DEFAULT_GOLDEN_THRESHOLDS["no_answer_correctness_rate"]
+    )
+    return 1 if failed else (2 if warnings else 0)
+
+
+def _redact_result_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _redact_result_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_result_value(item) for item in value]
+    if not isinstance(value, str):
+        return value
+    redacted = value
+    for name, secret in os.environ.items():
+        if secret and re.search(r"(?:KEY|TOKEN|SECRET|PASSWORD)$", name, re.IGNORECASE):
+            redacted = redacted.replace(secret, "[REDACTED]")
+    redacted = re.sub(r"(?:gsk_|AIza|sb_secret_|sk-)[A-Za-z0-9_-]{12,}", "[REDACTED]", redacted)
+    return re.sub(r"Bearer\s+[A-Za-z0-9._~-]{20,}", "Bearer [REDACTED]", redacted, flags=re.IGNORECASE)
+
+
+def _previous_golden_results(results_dir: Path) -> list[dict[str, Any]]:
+    files = sorted(results_dir.glob("golden_*.json"))
+    if not files:
+        return []
+    try:
+        payload = json.loads(files[-1].read_text(encoding="utf-8"))
+        return payload.get("results", []) if isinstance(payload, dict) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _write_golden_results(
+    results: list[dict[str, Any]], summary: dict[str, Any],
+    regressions: list[str], fixes: list[str], *,
+    results_dir: Path | None = None, timestamp: str | None = None,
+) -> tuple[Path, Path]:
+    destination = results_dir or (Path(__file__).resolve().parent.parent / "results")
+    destination.mkdir(parents=True, exist_ok=True)
+    stamp = timestamp or datetime.now().strftime("%Y%m%d_%H%M%S")
+    payload = _redact_result_value({
+        "timestamp": stamp, "summary": summary, "regressions": regressions,
+        "fixes": fixes, "results": results,
+    })
+    json_path = destination / f"golden_{stamp}.json"
+    md_path = destination / f"golden_{stamp}.md"
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    lines = [
+        f"# CascadeIQ golden evaluation — {stamp}", "", "## Overall metrics", "",
+        "| Metric | Value |", "|---|---:|",
+    ]
+    lines.extend(f"| {key} | {_render_cell(value)} |" for key, value in summary["overall"].items())
+    lines.extend([
+        "", "## Per-type metrics", "",
+        "| Type | Cases | Status match | Top-1 retrieval | Top-5 retrieval | Citation correct | No-answer correct | Redirect correct | Fact match | Freshness incidents | Median latency | P95 latency | Fallback | Cache hit |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ])
+    for kind, values in summary["by_type"].items():
+        fields = [
+            kind, values["cases"], values["status_match_rate"],
+            values["retrieval_top1_hit_rate"], values["retrieval_top5_hit_rate"],
+            values["citation_correctness_rate"], values["no_answer_correctness_rate"],
+            values["redirect_correctness_rate"], values["fact_match_rate"],
+            values["freshness_incidents"], values["latency_median"], values["latency_p95"],
+            values["fallback_rate"], values["cache_hit_rate"],
+        ]
+        lines.append("| " + " | ".join(_render_cell(value) for value in fields) + " |")
+    lines.extend(["", "## Regressions", ""])
+    lines.extend(f"- {item}" for item in regressions) if regressions else lines.append("- None")
+    lines.extend(["", "## Fixes", ""])
+    lines.extend(f"- {item}" for item in fixes) if fixes else lines.append("- None")
+    lines.extend([
+        "", "## Cases", "",
+        "| ID | Type | Expected | Actual | Status match | Top 1 hit | Top 5 hit | Citation correct | Fact match | Freshness incident | Model latency | Provider | Attempts | Cached | Result |",
+        "|---|---|---|---|---:|---:|---:|---:|---|---:|---:|---|---:|---:|---|",
+    ])
+    for row in payload["results"]:
+        fields = [row.get(key) for key in (
+            "id", "type", "expected_status", "actual_status", "status_match",
+            "top1_retrieval_hit", "top5_retrieval_hit", "citation_correctness",
+            "fact_match", "freshness_incident", "model_call_latency", "provider",
+            "attempts", "cached", "pass/fail",
+        )]
+        lines.append("| " + " | ".join(_render_cell(value) for value in fields) + " |")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return json_path, md_path
+
+
+def _run_golden_evaluation(
+    *, golden_path: Path, types: list[str] | None = None, limit: int | None = None,
+    repeat: int = 1, delay_seconds: float = 0.0,
+    provider_config: ProviderRuntimeConfig | None = None,
+    results_dir: Path | None = None, case_runner: Any = None,
+) -> int:
+    try:
+        payload = json.loads(golden_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"Cannot read golden set: {type(error).__name__}")
+        return 1
+    errors, warnings, counts = validate_payload(payload)
+    for kind, count in counts.items():
+        print(f"Golden set {kind}: {count}")
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}")
+        return 1
+    for warning in warnings:
+        print(f"WARNING: {warning}")
+    selected = [case for case in payload if types is None or case["type"] in types]
+    if limit is not None:
+        selected = selected[:limit]
+    if not selected:
+        print("No golden cases selected")
+        return 1
+    runner = case_runner or _run_case
+    results: list[dict[str, Any]] = []
+    model_call_seen = False
+    for case in selected:
+        for run_number in range(1, repeat + 1):
+            test_case = {**case, "case": case["id"], "run_number": run_number}
+            raw = runner(
+                test_case, provider_config=provider_config,
+                delay_seconds=delay_seconds if model_call_seen else 0.0,
+            )
+            result = _evaluate_golden_case(case, raw, provider_config=provider_config)
+            results.append(result)
+            model_call_seen = model_call_seen or bool(result.get("attempts", 0))
+    summary = _summarize_golden(results, repeat)
+    print("\n| Type | Cases | Status | Top 1 | Top 5 | Citations | No answer | Redirect | Facts | Freshness | Median | P95 | Fallback | Cache |")
+    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    for kind, values in summary["by_type"].items():
+        fields = [
+            kind, values["cases"], values["status_match_rate"],
+            values["retrieval_top1_hit_rate"], values["retrieval_top5_hit_rate"],
+            values["citation_correctness_rate"], values["no_answer_correctness_rate"],
+            values["redirect_correctness_rate"], values["fact_match_rate"],
+            values["freshness_incidents"], values["latency_median"], values["latency_p95"],
+            values["fallback_rate"], values["cache_hit_rate"],
+        ]
+        print("| " + " | ".join(_render_cell(value) for value in fields) + " |")
+    print(f"\nTotals: {json.dumps(summary['overall'], ensure_ascii=False)}")
+    print("\nPer-case results:")
+    print("| ID | Type | Status match | Top 1 | Top 5 | Citations | Facts | No answer | Redirect | Freshness | Model latency | Provider | Attempts | Cached | Result |")
+    print("|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---|---:|---:|---|")
+    for row in results:
+        fields = [row.get(key) for key in (
+            "id", "type", "status_match", "top1_retrieval_hit", "top5_retrieval_hit",
+            "citation_correctness", "fact_match", "no_answer_correctness",
+            "redirect_correctness", "freshness_incident", "model_call_latency",
+            "provider", "attempts", "cached", "pass/fail",
+        )]
+        print("| " + " | ".join(_render_cell(value) for value in fields) + " |")
+    if repeat > 1:
+        print(f"Unstable cases: {', '.join(summary['unstable_cases']) if summary['unstable_cases'] else 'none'}")
+    destination = results_dir or (Path(__file__).resolve().parent.parent / "results")
+    previous = _previous_golden_results(destination)
+    regressions, fixes = _detect_regressions(previous, results)
+    json_path, md_path = _write_golden_results(
+        results, summary, regressions, fixes, results_dir=destination,
+    )
+    print(f"Regressions: {', '.join(regressions) if regressions else 'none'}")
+    print(f"Fixes: {', '.join(fixes) if fixes else 'none'}")
+    print(f"Saved golden results: {json_path} and {md_path}")
+    exit_code = _golden_exit_code(summary, warnings)
+    print(f"Golden evaluation exit code: {exit_code}")
+    return exit_code
+
+
 RESULT_COLUMNS = (
     "case", "run_number", "question", "expected_status", "actual_status", "stage", "answer",
     "cited_titles", "citations_valid", "best_distance", "latency", "delay_waited_seconds", "error", "pass/fail",
@@ -602,7 +934,7 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
         )
 
 
-def main() -> None:
+def main() -> int:
     global USE_API_CACHE
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -638,17 +970,35 @@ def main() -> None:
         "--repeat", type=int, default=1,
         help="run each case this many times and summarize statuses (default: 1)",
     )
+    parser.add_argument("--golden", type=Path, help="run a JSON golden set instead of the legacy cases")
+    parser.add_argument("--types", help="comma-separated golden case types to include")
+    parser.add_argument("--limit", type=int, help="run at most N selected golden cases")
     args = parser.parse_args()
     USE_API_CACHE = args.use_cache
     if args.use_cache:
         os.environ["CACHE_ENABLED"] = "true"
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit must be at least 1")
+    selected_types = None
+    if args.types:
+        selected_types = [item.strip() for item in args.types.split(",") if item.strip()]
+        unknown = sorted(set(selected_types) - GOLDEN_TYPES)
+        if unknown:
+            parser.error(f"unknown golden type(s): {', '.join(unknown)}")
 
     provider_config = get_provider_runtime_config()
     if not enabled_provider_names(provider_config):
         print("no model provider configured")
-        return
+        return 1 if args.golden else 0
+
+    if args.golden:
+        return _run_golden_evaluation(
+            golden_path=args.golden, types=selected_types, limit=args.limit,
+            repeat=args.repeat, delay_seconds=max(0.0, args.delay_seconds),
+            provider_config=provider_config,
+        )
 
     if not args.smoke:
         _run_full_evaluation(
@@ -656,7 +1006,7 @@ def main() -> None:
             delay_seconds=max(0.0, args.delay_seconds), force_fail=args.force_fail,
             repeat=args.repeat,
         )
-        return
+        return 0
 
     smoke = next(item for item in cases() if item["case"] == "existing 2")
     debug_records: list[dict[str, Any]] | None = [] if args.debug_raw else None
@@ -674,6 +1024,7 @@ def main() -> None:
     _print_summary(smoke_results)
     if debug_records is not None:
         print(f"Saved raw diagnostics: {_write_debug_raw(debug_records)}")
+    return 0
 
 
 def _run_full_evaluation(
@@ -713,4 +1064,4 @@ def _run_full_evaluation(
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

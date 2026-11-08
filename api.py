@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+# Workaround for the Windows Application Control block on uuid_utils; must run
+# before any langchain import.
+from ingestion.compat_uuid_utils import ensure_uuid_utils
+
+ensure_uuid_utils()
+
 from contextlib import asynccontextmanager
 import logging
 from logging.handlers import RotatingFileHandler
@@ -19,6 +25,7 @@ from contextvars import ContextVar
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -47,6 +54,39 @@ _cache_store: SupabaseCacheStore | None = None
 _cache_counters = {"hit": 0, "miss": 0}
 _AUDIT_LOG_PATH = Path(__file__).resolve().parent / "logs" / "audit.log"
 _AUDIT_LOCK = Lock()
+_DEFAULT_CORS_ALLOWED_ORIGINS = (
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+)
+
+
+def _cors_allowed_origins() -> list[str]:
+    configured_origins = os.getenv("CORS_ALLOWED_ORIGINS")
+    if configured_origins is None:
+        return list(_DEFAULT_CORS_ALLOWED_ORIGINS)
+    origins = []
+    for value in configured_origins.split(","):
+        origin = value.strip().rstrip("/")
+        if origin and origin != "*":
+            origins.append(origin)
+    return origins or list(_DEFAULT_CORS_ALLOWED_ORIGINS)
+
+
+_APP_CORS_ALLOWED_ORIGINS = _cors_allowed_origins()
+
+
+def _with_cors(application, origins: list[str] | None = None):
+    return CORSMiddleware(
+        app=application,
+        allow_origins=list(_APP_CORS_ALLOWED_ORIGINS if origins is None else origins),
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["content-type", "accept", "x-request-id"],
+        allow_credentials=False,
+        expose_headers=["X-Request-ID"],
+        max_age=600,
+    )
 
 
 class _RequestIdFilter(logging.Filter):
@@ -82,6 +122,7 @@ def _append_audit_event(event: dict[str, object]) -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     global _provider_config, _answer_chain
+    logger.info("cors_allowed_origins=%s", _APP_CORS_ALLOWED_ORIGINS)
     _provider_config = require_enabled_provider_config()
     initialize_embedding_model()
     if _answer_chain is None:
@@ -90,8 +131,6 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="CascadeIQ API", lifespan=lifespan)
-
-
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
     request_id = uuid4().hex
@@ -358,3 +397,8 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
             content={"status": "error", "message": "Something went wrong. Please try again.",
                      "request_id": request_id},
         )
+
+
+# Wrap the complete FastAPI stack so CORS headers also appear on framework errors.
+fastapi_app = app
+app = _with_cors(fastapi_app)

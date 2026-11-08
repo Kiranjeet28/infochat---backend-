@@ -17,6 +17,11 @@ from dotenv import load_dotenv
 SOURCE_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(SOURCE_ROOT / ".env", override=False)
 sys.path.insert(0, str(SOURCE_ROOT))
+# Workaround for the Windows Application Control block on uuid_utils; must run
+# before any langchain import.
+from ingestion.compat_uuid_utils import ensure_uuid_utils  # noqa: E402
+
+ensure_uuid_utils()
 from ingestion.embedding_config import EMBEDDING_MODEL, EMBEDDING_CACHE_DIR, create_embedding_model  # noqa: E402
 from ingestion.extract_text import process_notices, link_notice_versions  # noqa: E402
 from ingestion.cache_store import bump_kb_version, read_kb_version  # noqa: E402
