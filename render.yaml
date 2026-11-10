@@ -33,5 +33,12 @@ services:
         value: "false"
       - key: CACHE_ENABLED
         value: "true"
+      # Native math libraries otherwise grab ~30 MB per concurrent request thread (measured: 225 -> 522 MB).
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
       - key: RESTRICTED_NOTICE_PATTERNS
         value: "struck off,list of oe,readmission"

@@ -159,3 +159,16 @@ There is no scheduled job configured yet. The existing manual stages are:
 Schedule these stages in that order only after configuring the runtime and
 approving the recurring notice-data transfer to Supabase. Newly fetched
 unreviewed notices remain `needs_review` and are not returned by retrieval.
+
+## Beta settings, limits and deployment
+
+All settings come from environment variables; `.env.example` lists every one with its default and holds no secrets.
+
+- **Rate limits (in memory, per instance, reset on restart):** `RATE_LIMIT_PER_MINUTE` (10) and `RATE_LIMIT_PER_DAY` (80) per client; the client is a salted hash of the IP, and `X-Forwarded-For` is used only with `TRUST_PROXY_HEADERS=1`. Exceeding a limit returns HTTP 429 `{"status":"rate_limited","retry_after_seconds":N}`. `0` turns a limit off.
+- **Daily model cap:** `GLOBAL_DAILY_MODEL_CALLS` (400, IST day). When reached, `/api/ask` returns HTTP 200 with status `ai_unavailable`, a "busy today" message and related notice cards, and calls no provider. Cache hits, redirects, validation errors and no-evidence answers do not count.
+- **Privacy:** `RESTRICTED_NOTICE_PATTERNS` (default `struck off,list of oe,readmission`) keeps names and roll numbers away from the model.
+- **Feedback:** `POST /api/feedback` stores only a request id, a rating, a reason and a short comment (never the question or answer); `FEEDBACK_PER_DAY` (20) per client. Run `ingestion/feedback_table.sql` first or the endpoint answers 503.
+- **Logging:** one-line records on stdout; set `LOG_FILE` to also write a file. Questions are never logged.
+- **Deployment:** see `DEPLOYMENT.md` (Docker image, `render.yaml`, checklist, rollback, key rotation, runbook). API runtime pins: `requirements-api.txt` (Python 3.12).
+- **Evaluation:** `python ingestion/evaluate_chain.py --golden ingestion/golden/golden_set.json` reports verified and unverified cases separately (drafted cases have `"verified": false`).
+- **Smoke test of a running API:** `python qa/smoke_deployed.py <API_URL> <FRONTEND_ORIGIN>`.

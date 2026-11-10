@@ -27,6 +27,10 @@ class DockerfileTests(unittest.TestCase):
         code = " ".join(l for l in self.text.splitlines() if not l.lstrip().startswith("#"))
         self.assertNotRegex(code, r"EMBEDDING_ALLOW_DOWNLOAD")
 
+    def test_native_thread_limits_are_set(self):
+        for name in ("OMP_NUM_THREADS=1", "OPENBLAS_NUM_THREADS=1", "MKL_NUM_THREADS=1"):
+            self.assertIn(name, self.text)
+
     def test_no_secret_is_copied_or_baked_in(self):
         self.assertNotRegex(self.text, r"(?im)^(COPY|ADD)\s+.*\.env")
         self.assertNotRegex(self.text, r"(?im)^ENV\s+.*(KEY|TOKEN|SECRET)")
@@ -64,6 +68,8 @@ class RenderBlueprintTests(unittest.TestCase):
             self.assertNotIn("value", env[name])
         self.assertNotRegex(self.text, r"gsk_|eyJ[A-Za-z0-9_-]{20,}|sb_secret")
         self.assertEqual(env["TRUST_PROXY_HEADERS"]["value"], "1")
+        for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+            self.assertEqual(env[name]["value"], "1")
         self.assertEqual(env["GROQ_ENABLED"]["value"], "true")
 
     def test_every_blueprint_variable_is_documented_in_env_example(self):

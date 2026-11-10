@@ -5,7 +5,7 @@ Nothing in this repo publishes anything by itself; every step below is yours to 
 
 ## 1. Facts to plan around
 
-- **Memory:** about 240 MB resident (measured: 226 MB after startup, 241 MB after live questions, peak 259 MB). A 512 MB host is enough for one instance.
+- **Memory:** about 240 MB resident for sequential use (226 MB after startup, 241 MB after live questions). Under 10 concurrent clients the first burst raised it to about 520 MB until `OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1` and `MKL_NUM_THREADS=1` were set (then about 300 MB, flat for 17,000 requests). The Dockerfile and `render.yaml` set them; set them yourself when running without Docker. A 512 MB host is tight even so: prefer a 1 GB plan for the beta.
 - **One instance only for the beta.** Rate limits and the daily model cap live in memory per process: they reset on restart and each extra instance counts separately.
 - **Python 3.12** in the image (the pinned `numpy` in `requirements-api.txt` needs 3.12 or newer). The ingestion workflow still uses 3.11 with older pins; see "Ingestion".
 - **Cold start:** the API loads the embedding model at startup. Free hosts that sleep add a long first request; see keep-alive below.
@@ -28,6 +28,7 @@ Nothing in this repo publishes anything by itself; every step below is yours to 
 | `LOG_FILE` | backend, optional | also write a rotating log file (stdout is always used) |
 | `RATE_LIMIT_SALT` | backend, optional secret | fixed salt for client hashes |
 | `PORT` | set by the host | uvicorn binds `0.0.0.0:$PORT` |
+| `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS` | backend | `1`: caps native thread memory (see section 1) |
 | Frontend API base URL | frontend (Vercel) | the variable name is in the frontend's own env example; set it to the backend's `https://` URL |
 
 The full list with defaults is in `.env.example`. Never put a real value there.
