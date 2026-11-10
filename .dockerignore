@@ -1,0 +1,34 @@
+# Secrets and local state never enter the image
+.env
+.env.*
+!.env.example
+.git
+.github
+.gitignore
+
+# Local tooling, QA output, backups, logs, virtual environments
+qa
+qa_blackbox
+qa/backup
+results
+logs
+tmp
+.codex-tmp
+**/.venv
+.venv
+.uv-cache
+.test-packages
+models_cache
+**/__pycache__
+**/*.pyc
+
+# Not needed at runtime
+ingestion/test_*.py
+ingestion/golden
+ingestion/.gitignore
+*.md
+run.bat
+pipeline-summary.json
+results.txt
+Dockerfile
+.dockerignore
