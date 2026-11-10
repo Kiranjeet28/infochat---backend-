@@ -13,6 +13,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 import re
+import sys
 import time
 import traceback
 import json
@@ -120,15 +121,34 @@ class _RequestIdFilter(logging.Filter):
         return True
 
 
-def _configure_logging() -> None:
-    log_dir = Path(__file__).resolve().parent / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    handler = RotatingFileHandler(log_dir / "api.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")
-    handler.addFilter(_RequestIdFilter())
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s request_id=%(request_id)s %(message)s"))
-    logger.setLevel(logging.INFO)
-    if not any(isinstance(item, RotatingFileHandler) and item.baseFilename == handler.baseFilename for item in logger.handlers):
-        logger.addHandler(handler)
+class _OneLineFormatter(logging.Formatter):
+    """Keep every log record on one line (stack traces are joined with ' | ')."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return super().format(record).replace("\r", " ").replace("\n", " | ")
+
+
+def _configure_logging(target: logging.Logger | None = None) -> None:
+    """Log to stdout; also to LOG_FILE only when that variable is set."""
+    target = target or logger
+    formatter = _OneLineFormatter("%(asctime)s %(levelname)s request_id=%(request_id)s %(message)s")
+
+    def attach(handler: logging.Handler, marker: str) -> None:
+        if any(getattr(item, "_cascadeiq_marker", None) == marker for item in target.handlers):
+            return
+        handler.addFilter(_RequestIdFilter())
+        handler.setFormatter(formatter)
+        handler._cascadeiq_marker = marker  # type: ignore[attr-defined]
+        target.addHandler(handler)
+
+    target.setLevel(logging.INFO)
+    target.propagate = False
+    attach(logging.StreamHandler(sys.stdout), "stdout")
+    log_file = os.getenv("LOG_FILE")
+    if log_file:
+        path = Path(log_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        attach(RotatingFileHandler(path, maxBytes=2_000_000, backupCount=3, encoding="utf-8"), f"file:{path}")
 
 
 _configure_logging()
@@ -138,6 +158,7 @@ def _append_audit_event(event: dict[str, object]) -> None:
     """Write metadata-only audit records without question or answer text."""
     try:
         with _AUDIT_LOCK:
+            _AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
             with _AUDIT_LOG_PATH.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(event, ensure_ascii=False) + "\n")
     except OSError:
@@ -164,6 +185,8 @@ async def add_request_id(request: Request, call_next):
     try:
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
         return response
     finally:
         _request_id.reset(token)

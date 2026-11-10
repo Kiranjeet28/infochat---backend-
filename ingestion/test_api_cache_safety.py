@@ -121,6 +121,8 @@ class ApiCacheSafetyTests(unittest.TestCase):
         self.assertTrue(response.headers.get("X-Request-ID"))
 
     def test_unexpected_error_has_request_id_and_traceback_only_in_log(self):
+        with patch.dict(os.environ, {"LOG_FILE": str(ROOT / "logs" / "api.log")}):
+            api._configure_logging()  # file logging is opt-in through LOG_FILE
         response, _ = self.request(fail=True)
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json()["request_id"], response.headers["X-Request-ID"])
