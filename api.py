@@ -27,10 +27,11 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ingestion.answer_chain import build_answer_chain
 from ingestion.answer_chain import extract_citations, renumber_citations
+from ingestion.feedback_store import SupabaseFeedbackStore
 from ingestion.limits import GlobalModelCap, SlidingWindowLimiter, client_id, env_int
 from ingestion.answer_config import plain_text_answers_enabled
 from ingestion.cache_config import cache_enabled, cache_ttl_seconds
@@ -188,15 +189,13 @@ async def unexpected_error_handler(request: Request, error: Exception) -> JSONRe
 
 @app.exception_handler(RequestValidationError)
 async def request_validation_error_handler(
-    _request: Request, error: RequestValidationError
+    request: Request, error: RequestValidationError
 ) -> JSONResponse:
-    return JSONResponse(
-        status_code=422,
-        content={
-            "status": "error",
-            "message": f"question must contain between 1 and {MAX_QUESTION_LENGTH} characters.",
-        },
-    )
+    if request.url.path == "/api/feedback":
+        message = "Invalid feedback."
+    else:
+        message = f"question must contain between 1 and {MAX_QUESTION_LENGTH} characters."
+    return JSONResponse(status_code=422, content={"status": "error", "message": message})
 
 
 @app.get("/health")
@@ -239,6 +238,46 @@ def strip_markdown(text: str) -> str:
     text = re.sub(r"(?m)^[ \t]*[-+*][ \t]+", "", text)
     text = re.sub(r"(?m)^[ \t]*\d+[.)][ \t]+", "", text)
     return text
+
+
+_feedback_limiter = SlidingWindowLimiter(lambda: [(86400, env_int("FEEDBACK_PER_DAY", 20))])
+_feedback_store: SupabaseFeedbackStore | None = None
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+
+class FeedbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str = Field(pattern=r"^[0-9a-f]{1,64}$")
+    rating: Literal["up", "down"]
+    reason: Literal["wrong_answer", "outdated", "not_relevant", "other"] | None = None
+    comment: str | None = Field(default=None, max_length=200)
+
+
+@app.post("/api/feedback")
+def feedback(request: Request, body: FeedbackRequest) -> JSONResponse:
+    """Store a thumbs up/down for an earlier answer; the question and answer are never stored or logged."""
+    global _feedback_store
+    retry_after = _feedback_limiter.hit(_client_id(request))
+    if retry_after is not None:
+        return JSONResponse(
+            status_code=429, headers={"Retry-After": str(retry_after)},
+            content={"status": "rate_limited", "retry_after_seconds": retry_after,
+                     "message": "Thanks, you have sent enough feedback for today."},
+        )
+    comment = _CONTROL_CHARS.sub(" ", body.comment).strip() if body.comment else None
+    row = {"request_id": body.request_id, "rating": body.rating, "reason": body.reason, "comment": comment or None}
+    try:
+        if _feedback_store is None:
+            _feedback_store = SupabaseFeedbackStore(
+                os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+            )
+        _feedback_store.add(row)
+    except Exception as error:
+        logger.warning("status=feedback_error error_type=%s", type(error).__name__)
+        return JSONResponse(status_code=503, content={"status": "error", "message": "Feedback is not available right now."})
+    logger.info("status=feedback rating=%s reason=%s", body.rating, body.reason)
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 
 @app.post("/api/ask", response_model=AskResponse)
