@@ -241,7 +241,8 @@ def _skip_reason(notice: dict[str, Any]) -> str:
     return "Notice has no extracted text"
 
 
-def split_and_load() -> tuple[int, int, int]:
+def split_and_load(only_ids: set[str] | None = None, dry_run: bool = False) -> tuple[int, int, int]:
+    """Chunk, embed and save eligible notices; with only_ids, touch nothing else. dry_run writes nothing."""
     project_url, headers = _credentials()
     splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
         encoding_name="cl100k_base",
@@ -252,6 +253,9 @@ def split_and_load() -> tuple[int, int, int]:
     with requests.Session() as session:
         notices = _fetch_notices(session, project_url, headers)
         existing_by_notice = _fetch_existing_chunks(session, project_url, headers)
+        if only_ids is not None:  # backfill mode: other notices and their chunks are left alone
+            notices = [n for n in notices if n["notice_id"] in only_ids]
+            existing_by_notice = {k: v for k, v in existing_by_notice.items() if k in only_ids}
         eligible_notices = [
             notice
             for notice in notices
@@ -279,10 +283,11 @@ def split_and_load() -> tuple[int, int, int]:
                 continue
             if _chunks_are_current(notice, old_chunks, new_chunks):
                 skipped_unchanged += 1
-                try:
-                    _record_index_status(session, project_url, headers, notice_id, "indexed")
-                except requests.RequestException as error:
-                    failed_notices[notice_id] = f"Could not record indexed status: {error}"[:1000]
+                if not dry_run:
+                    try:
+                        _record_index_status(session, project_url, headers, notice_id, "indexed")
+                    except requests.RequestException as error:
+                        failed_notices[notice_id] = f"Could not record indexed status: {error}"[:1000]
                 continue
             if _chunk_structure_matches(notice, old_chunks, new_chunks):
                 missing_embedding_indexes = {
@@ -295,6 +300,14 @@ def split_and_load() -> tuple[int, int, int]:
                 if old_chunks:
                     delete_ids.add(notice_id)
                 chunk_rows_by_notice[notice_id] = new_chunks
+
+        if dry_run:
+            for notice_id, rows in chunk_rows_by_notice.items():
+                print(f"[dry run] {notice_id}: would write {len(rows)} chunk(s); delete old: {notice_id in delete_ids}")
+            for notice in notices:
+                if notice["notice_id"] not in eligible_ids:
+                    print(f"[dry run] {notice['notice_id']}: not eligible ({_skip_reason(notice)})")
+            return len(eligible_notices), 0, len(failed_notices)
 
         # Mark notices that are not eligible for chunking and remove any stale chunks.
         for notice in notices:
@@ -364,4 +377,11 @@ def split_and_load() -> tuple[int, int, int]:
 
 
 if __name__ == "__main__":
-    split_and_load()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Chunk and embed approved notices.")
+    parser.add_argument("--ids", help="comma separated notice ids to process; all other notices are untouched")
+    parser.add_argument("--dry-run", action="store_true", help="show what would be written and write nothing")
+    args = parser.parse_args()
+    selected = {i.strip() for i in args.ids.split(",") if i.strip()} if args.ids else None
+    split_and_load(selected, args.dry_run)
