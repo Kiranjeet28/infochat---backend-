@@ -23,6 +23,8 @@ from ingestion.answer_config import (
     MODEL_INPUT_EXCLUDED_CATEGORIES,
     MODEL_INPUT_EXCLUDED_NOTICE_IDS,
     MODEL_INPUT_EXCLUDED_TITLE_MARKERS,
+    normalize_marker,
+    restricted_notice_patterns,
 )
 from ingestion.langchain_retriever import NoticeRetriever
 from ingestion.prompt import NOTICE_ANSWER_PROMPT
@@ -42,10 +44,7 @@ def format_evidence(documents: Sequence[Document]) -> str:
         notice_date = metadata.get("published_at") or "not provided"
         source_url = metadata.get("source_url") or "not provided"
         if _exclude_full_text(document):
-            content = (
-                "Summary: This notice concerns students struck off the rolls; "
-                "individual names and roll numbers are withheld."
-            )
+            content = _withheld_summary(document)
         else:
             content = document.page_content
         blocks.append(
@@ -53,6 +52,19 @@ def format_evidence(documents: Sequence[Document]) -> str:
             f"Source: {source_url}\n{content}"
         )
     return "\n\n".join(blocks)
+
+
+def _withheld_summary(document: Document) -> str:
+    title = normalize_marker(str(document.metadata.get("title") or ""))
+    if "struck off" in title or "struck off" in normalize_marker(str(document.metadata.get("category") or "")):
+        return (
+            "Summary: This notice concerns students struck off the rolls; "
+            "individual names and roll numbers are withheld."
+        )
+    return (
+        "Summary: This notice concerns individual students (a student list or personal decisions); "
+        "names, roll numbers and other personal details are withheld. Refer the user to the official notice at the Source link."
+    )
 
 
 def _exclude_full_text(document: Document) -> bool:
@@ -64,10 +76,13 @@ def _exclude_full_text(document: Document) -> bool:
     excluded_ids = {value.casefold() for value in MODEL_INPUT_EXCLUDED_NOTICE_IDS}
     excluded_categories = {value.casefold().replace("-", "_") for value in MODEL_INPUT_EXCLUDED_CATEGORIES}
     excluded_markers = {value.casefold().replace("-", "_") for value in MODEL_INPUT_EXCLUDED_TITLE_MARKERS}
+    restricted = restricted_notice_patterns()
+    searchable = (normalize_marker(str(metadata.get("title") or "")), normalize_marker(str(metadata.get("category") or "")))
     return (
         notice_id in excluded_ids
         or category in excluded_categories
         or any(marker in title for marker in excluded_markers)
+        or any(pattern in text for pattern in restricted for text in searchable)
     )
 
 
