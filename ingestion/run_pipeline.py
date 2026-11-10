@@ -24,6 +24,7 @@ from ingestion.compat_uuid_utils import ensure_uuid_utils  # noqa: E402
 ensure_uuid_utils()
 from ingestion.embedding_config import EMBEDDING_MODEL, EMBEDDING_CACHE_DIR, create_embedding_model  # noqa: E402
 from ingestion.extract_text import process_notices, link_notice_versions  # noqa: E402
+from ingestion.safe_fetch import JSON_TYPES, MAX_TEXT_BYTES, safe_get  # noqa: E402
 from ingestion.cache_store import bump_kb_version, read_kb_version  # noqa: E402
 from ingestion.chunk_notices import (  # noqa: E402
     CHUNK_OVERLAP_TOKENS, CHUNK_SIZE_TOKENS, EMBEDDING_DIMENSIONS,
@@ -34,7 +35,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter  # noqa: E40
 API_CONNECT_TIMEOUT = 10
 API_TIMEOUT = 90
 WARMUP_ATTEMPTS = 4
-WARMUP_TOTAL_SECONDS = 240
+WARMUP_DEADLINE_SECONDS = 240
 MIN_TEXT_LENGTH = int(os.getenv("MIN_NOTICE_TEXT_LENGTH", "40"))
 ALLOWED_SOURCE_DOMAINS = tuple(filter(None, os.getenv("ALLOWED_SOURCE_DOMAINS", "gndec.ac.in").split(",")))
 CURRENT_STAGE = "startup"
@@ -159,9 +160,14 @@ class RestStore:
         return invalidated
 
 
+def _api_get(session: Any, api_url: str, params: dict[str, Any], *, timeout: tuple[float, float], deadline: float | None):
+    return safe_get(api_url, allowed_content_types=JSON_TYPES, max_bytes=MAX_TEXT_BYTES, timeout=timeout,
+                    deadline_seconds=deadline, session=session, params=params,
+                    extra_allowed_hosts=(urlparse(api_url).hostname or "",))
+
+
 def fetch_page(session: Any, api_url: str, page: int) -> list[dict[str, Any]]:
-    response = session.get(api_url, params={"page":page,"pageSize":9,"sort":"latest"}, timeout=(API_CONNECT_TIMEOUT, API_TIMEOUT))
-    response.raise_for_status()
+    response = _api_get(session, api_url, {"page":page,"pageSize":9,"sort":"latest"}, timeout=(API_CONNECT_TIMEOUT, 60), deadline=API_TIMEOUT)
     items = response.json().get("data", {}).get("items", [])
     stamp = datetime.now(timezone.utc).isoformat()
     for item in items:
@@ -170,19 +176,25 @@ def fetch_page(session: Any, api_url: str, page: int) -> list[dict[str, Any]]:
 
 
 def warm_up(session: Any, api_url: str) -> None:
+    """Wake the notices API: few attempts, exponential backoff, one overall deadline."""
     started = time.monotonic()
+    deadline = float(os.getenv("WARMUP_DEADLINE_SECONDS", WARMUP_DEADLINE_SECONDS))
     delay = 2
     last_error: Exception | None = None
     for attempt in range(WARMUP_ATTEMPTS):
+        left = deadline - (time.monotonic() - started)
+        if left <= 0:
+            break
         try:
-            response = session.get(api_url, params={"page":1,"pageSize":1,"sort":"latest"}, timeout=(API_CONNECT_TIMEOUT, API_TIMEOUT))
-            response.raise_for_status()
+            _api_get(session, api_url, {"page":1,"pageSize":1,"sort":"latest"}, timeout=(API_CONNECT_TIMEOUT, API_TIMEOUT), deadline=left)
             return
         except requests.RequestException as error:
             last_error = error
-            if attempt + 1 < WARMUP_ATTEMPTS and time.monotonic() - started + delay < WARMUP_TOTAL_SECONDS:
+            if attempt + 1 < WARMUP_ATTEMPTS and time.monotonic() - started + delay < deadline:
                 time.sleep(delay)
                 delay = min(delay * 2, 30)
+            else:
+                break
     raise RuntimeError("Notices API warm-up/fetch failed before database access") from last_error
 
 
@@ -278,6 +290,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
                 "needs_ocr": "needs_ocr",
                 "pdf_error": "pdf_extraction_error",
                 "no_text_or_pdf": "no_text_or_pdf",
+                "official_page_unreachable": "official_page_unreachable",
             }.get(status, "no_usable_text")
             summary["failed_notices"][notice_id] = failure_code
             continue

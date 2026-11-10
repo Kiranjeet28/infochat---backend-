@@ -2,30 +2,30 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import hashlib
 import re
-import socket
 from collections import Counter
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import pdfplumber
-import requests
+import requests  # noqa: F401  (tests patch extract_text.requests.get)
 from bs4 import BeautifulSoup
+
+try:
+    from ingestion.safe_fetch import FetchError, HTML_TYPES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PDF_TYPES, safe_get
+except ImportError:  # run directly from the ingestion folder
+    from safe_fetch import FetchError, HTML_TYPES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PDF_TYPES, safe_get
 
 
 INPUT_PATH = Path(__file__).parent / "data" / "notices.json"
 OUTPUT_PATH = Path(__file__).parent / "data" / "notices_extracted.json"
-REQUEST_TIMEOUT_SECONDS = 60
-MAX_REDIRECTS = 3
-MAX_PDF_BYTES = 25 * 1024 * 1024
-MAX_HTML_BYTES = 5 * 1024 * 1024
-PDF_CONTENT_TYPES = ("application/pdf", "application/x-pdf", "application/octet-stream", "binary/octet-stream")
-HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
+MAX_PDF_PAGES = 100
+MAX_TEXT_CHARS = 500_000
+FETCH_DEADLINE_SECONDS = 90
 PAGE_NUMBER = re.compile(r"^(?:page\s*)?\d+(?:\s*(?:of|/)\s*\d+)?$", re.IGNORECASE)
 DATE_PATTERN = re.compile(
     r"\b(?:\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+20\d{2})?|"
@@ -73,64 +73,6 @@ REPLACEMENT_CUE = re.compile(
 )
 
 
-class UnsafeFetchError(requests.RequestException):
-    """A notice link was refused by the fetch safety rules."""
-
-
-def _validate_fetch_url(url: str) -> None:
-    """Allow only https URLs whose host resolves to public addresses."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise UnsafeFetchError("only https URLs are fetched")
-    try:
-        addresses = socket.getaddrinfo(parsed.hostname, None)
-    except socket.gaierror:
-        raise UnsafeFetchError("host does not resolve") from None
-    for address in addresses:
-        if not ipaddress.ip_address(address[4][0].split("%")[0]).is_global:
-            raise UnsafeFetchError("private or internal address blocked")
-
-
-def safe_get(url: str, *, accept: tuple[str, ...], max_bytes: int, magic: bytes | None = None,
-             timeout: int = REQUEST_TIMEOUT_SECONDS) -> requests.Response:
-    """GET a notice link: https and public hosts only, capped redirects, size and content type.
-
-    Each redirect hop is validated again. Residual risk: DNS is resolved once for the
-    check and again by requests, so a rebinding host could still slip through.
-    """
-    current = url
-    for _ in range(MAX_REDIRECTS + 1):
-        _validate_fetch_url(current)
-        response = requests.get(current, timeout=timeout, allow_redirects=False, stream=True)
-        try:
-            if response.status_code in (301, 302, 303, 307, 308):
-                location = response.headers.get("location")
-                if not location:
-                    raise UnsafeFetchError("redirect without a location")
-                current = urljoin(current, location)
-                continue
-            response.raise_for_status()
-            content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
-            if content_type and content_type not in accept:
-                raise UnsafeFetchError("unsupported content type")
-            if int(response.headers.get("content-length") or 0) > max_bytes:
-                raise UnsafeFetchError("response too large")
-            chunks, total = [], 0
-            for chunk in response.iter_content(65536):
-                total += len(chunk)
-                if total > max_bytes:
-                    raise UnsafeFetchError("response too large")
-                chunks.append(chunk)
-            data = b"".join(chunks)
-            if magic and magic not in data[:1024]:
-                raise UnsafeFetchError("unsupported file type")
-            response._content = data
-            return response
-        finally:
-            response.close()
-    raise UnsafeFetchError("too many redirects")
-
-
 def clean_text(text: str, page_texts: list[str] | None = None) -> str:
     """Normalize whitespace and remove page numbers and repeated page furniture."""
     text = text.replace("\ufffd", " ")
@@ -158,6 +100,10 @@ def clean_text(text: str, page_texts: list[str] | None = None) -> str:
     return "\n".join(cleaned_lines)
 
 
+class OfficialPageUnavailable(FetchError):
+    """The official notice page could not be read, so only a teaser is available."""
+
+
 def _text_and_pdf_link(notice: dict) -> tuple[str, str | None]:
     html = notice.get("htmlContent") or ""
     soup = BeautifulSoup(html, "html.parser")
@@ -182,10 +128,12 @@ def _text_and_pdf_link(notice: dict) -> tuple[str, str | None]:
 
     # API htmlContent can be a short generated teaser. Prefer the official
     # notice body and its PDF attachment whenever that teaser points students
-    # elsewhere for the actual details.
+    # elsewhere for the actual details. The teaser is never used as the notice
+    # text when the official page cannot be read (that would replace real text).
     if notice_url:
         try:
-            response = safe_get(notice_url, accept=HTML_CONTENT_TYPES, max_bytes=MAX_HTML_BYTES)
+            response = safe_get(notice_url, allowed_content_types=HTML_TYPES, max_bytes=MAX_TEXT_BYTES,
+                                deadline_seconds=FETCH_DEADLINE_SECONDS)
             page = BeautifulSoup(response.text, "html.parser")
             editor = page.select_one(".ql-editor")
             if editor:
@@ -198,9 +146,9 @@ def _text_and_pdf_link(notice: dict) -> tuple[str, str | None]:
                     return "", None
                 if official_text:
                     return clean_text(official_text), None
-        except requests.RequestException:
-            # Keep the API text as a fallback when the official page is down.
-            pass
+        except FetchError as error:
+            raise OfficialPageUnavailable(str(error)) from None
+        raise OfficialPageUnavailable("official page has no readable notice body")
 
     return html_text, pdf_link
 
@@ -237,10 +185,13 @@ def _is_link_instructions(text: str) -> bool:
 
 
 def _extract_pdf(pdf_url: str) -> tuple[str, str]:
-    response = safe_get(pdf_url, accept=PDF_CONTENT_TYPES, max_bytes=MAX_PDF_BYTES, magic=b"%PDF")
+    response = safe_get(pdf_url, allowed_content_types=PDF_TYPES, max_bytes=MAX_PDF_BYTES,
+                        deadline_seconds=FETCH_DEADLINE_SECONDS)
+    if b"%PDF" not in response.content[:1024]:
+        raise FetchError("file is not a PDF")
     with pdfplumber.open(BytesIO(response.content)) as pdf:
-        pages = [(page.extract_text() or "") for page in pdf.pages]
-    text = clean_text("\n".join(pages), page_texts=pages)
+        pages = [(page.extract_text() or "") for page in pdf.pages[:MAX_PDF_PAGES]]
+    text = clean_text("\n".join(pages), page_texts=pages)[:MAX_TEXT_CHARS]
     return text, "extracted" if text else "needs_ocr"
 
 
@@ -500,6 +451,8 @@ def add_ingestion_status(notice: dict) -> dict:
     status = notice.get("extraction_status")
     if status == "needs_ocr":
         reason = "PDF has no extractable text; OCR is required."
+    elif status == "official_page_unreachable":
+        reason = "Official notice page could not be read; the API teaser text was not used."
     elif status == "pdf_error":
         error = notice.get("extraction_error", "unknown PDF extraction error")
         reason = f"PDF extraction failed: {error}"
@@ -535,10 +488,17 @@ def process_notices(notices: list[dict]) -> list[dict]:
             result = extract_notice_text(notice)
         except Exception as error:
             result = dict(notice)
-            _, pdf_url = _text_and_pdf_link(notice)
+            pdf_url = None
+            if not isinstance(error, OfficialPageUnavailable):  # do not fetch the failing page again
+                try:
+                    _, pdf_url = _text_and_pdf_link(notice)
+                except Exception:
+                    pdf_url = None
             result["pdf_url"] = pdf_url
             result["text"] = ""
-            result["extraction_status"] = "pdf_error"
+            result["extraction_status"] = (
+                "official_page_unreachable" if isinstance(error, OfficialPageUnavailable) else "pdf_error"
+            )
             result["content_hash"] = hashlib.sha256(b"").hexdigest()
             result["metadata"] = extract_metadata(notice, "")
             result["extraction_error"] = str(error)

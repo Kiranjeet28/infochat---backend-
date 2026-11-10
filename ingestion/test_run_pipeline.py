@@ -1,4 +1,5 @@
 """Offline orchestration checks using fake API and Supabase adapters."""
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,15 +13,19 @@ from ingestion import run_pipeline as pipeline
 
 class Response:
     url = "https://api.example.test/notices"
+    status_code = 200
+    headers = {"content-type": "application/json"}
     def __init__(self, items=None, error=None): self.items, self.error = items or [], error
     def raise_for_status(self):
         if self.error: raise self.error
     def json(self): return {"data":{"items":self.items}}
+    def iter_content(self, _size): yield json.dumps(self.json()).encode()
+    def close(self): pass
 
 
 class FakeAPI:
     def __init__(self, pages): self.pages, self.calls = pages, []
-    def get(self, _url, *, params, timeout):
+    def get(self, _url, *, params, timeout, **_kwargs):
         self.calls.append(params["page"])
         value = self.pages.get(params["page"], [])
         if isinstance(value, Exception): raise value
@@ -51,6 +56,11 @@ def processed(notices):
 
 
 class RunPipelineOfflineTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch("ingestion.safe_fetch._getaddrinfo", return_value=[(2, 1, 6, "", ("93.184.216.34", 0))])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def notice(self, notice_id="n1", content_hash="h1"):
         return {"_id":notice_id,"title":"Notice","url":"https://erp.gndec.ac.in/n","text":"content",
                 "content_hash":content_hash}
