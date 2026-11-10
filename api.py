@@ -8,7 +8,6 @@ from ingestion.compat_uuid_utils import ensure_uuid_utils
 
 ensure_uuid_utils()
 
-from collections import deque
 from contextlib import asynccontextmanager
 import logging
 from logging.handlers import RotatingFileHandler
@@ -32,6 +31,7 @@ from pydantic import BaseModel, Field
 
 from ingestion.answer_chain import build_answer_chain
 from ingestion.answer_chain import extract_citations, renumber_citations
+from ingestion.limits import GlobalModelCap, SlidingWindowLimiter, client_id, env_int
 from ingestion.answer_config import plain_text_answers_enabled
 from ingestion.cache_config import cache_enabled, cache_ttl_seconds
 from ingestion.cache_store import (
@@ -90,44 +90,27 @@ def _with_cors(application, origins: list[str] | None = None):
     )
 
 
-_RATE_LIMIT_WINDOW_SECONDS = 60
-_rate_hits: dict[str, deque] = {}
-_rate_lock = Lock()
+def _ask_windows() -> list[tuple[int, int]]:
+    return [(60, env_int("RATE_LIMIT_PER_MINUTE", 10)), (86400, env_int("RATE_LIMIT_PER_DAY", 80))]
 
 
-def _rate_limit_per_minute() -> int:
-    """Requests per client per minute for /api/ask; 0 disables the limit."""
-    try:
-        return max(0, int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")))
-    except ValueError:
-        return 30
+# In-memory and per instance: both reset when the process restarts (see ingestion/limits.py).
+_ask_limiter = SlidingWindowLimiter(_ask_windows)
+_model_cap = GlobalModelCap(lambda: env_int("GLOBAL_DAILY_MODEL_CALLS", 400))
+
+BUSY_TODAY_MESSAGE = (
+    "CascadeIQ has reached its limit for AI answers today, so it cannot answer new questions right now. "
+    "Please open the notices below or check the official notice board, or try again tomorrow."
+)
 
 
-def _client_key(request: Request) -> str:
-    if os.getenv("RATE_LIMIT_TRUST_FORWARDED") == "1":
-        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-        if forwarded:
-            return forwarded
-    return request.client.host if request.client else "unknown"
+def _client_id(request: Request) -> str:
+    return client_id(request.client.host if request.client else None, request.headers.get("x-forwarded-for"))
 
 
-def _rate_limit_retry_after(request: Request) -> int | None:
-    """Return seconds to wait if this client is over its limit, else record the hit."""
-    limit = _rate_limit_per_minute()
-    if not limit:
-        return None
-    now = time.monotonic()
-    with _rate_lock:
-        hits = _rate_hits.setdefault(_client_key(request), deque())
-        while hits and now - hits[0] > _RATE_LIMIT_WINDOW_SECONDS:
-            hits.popleft()
-        if len(hits) >= limit:
-            return max(1, int(_RATE_LIMIT_WINDOW_SECONDS - (now - hits[0])) + 1)
-        hits.append(now)
-        if len(_rate_hits) > 10000:  # drop idle clients so the table cannot grow without bound
-            for key in [k for k, v in _rate_hits.items() if not v or now - v[-1] > _RATE_LIMIT_WINDOW_SECONDS]:
-                _rate_hits.pop(key, None)
-    return None
+def _busy_generator(_prompt) -> dict:
+    """Stand-in for the model when the daily cap is reached: retrieval runs, no provider is called."""
+    return {"status": "ai_unavailable", "attempts": 0, "provider": None, "model": None}
 
 
 class _RequestIdFilter(logging.Filter):
@@ -261,12 +244,14 @@ def strip_markdown(text: str) -> str:
 @app.post("/api/ask", response_model=AskResponse)
 def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
     """Answer a question from current notices and return its source cards."""
-    retry_after = _rate_limit_retry_after(request)
+    retry_after = _ask_limiter.hit(_client_id(request))
     if retry_after is not None:
+        logger.info("status=rate_limited retry_after=%d", retry_after)
         return JSONResponse(
             status_code=429,
             headers={"Retry-After": str(retry_after)},
-            content={"status": "error", "message": "Too many requests. Please wait a moment and try again."},
+            content={"status": "rate_limited", "retry_after_seconds": retry_after,
+                     "message": "Too many questions in a short time. Please wait a moment and try again."},
         )
     question = body.question.strip()
     if not question:
@@ -343,20 +328,42 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
                                type(cache_error).__name__)
                 cache_allowed = False
 
-        chain = _answer_chain or build_answer_chain(provider_config=_provider_config)
-        if body.department or body.semester:
+        model_slot = _model_cap.reserve()
+        busy = not model_slot
+        if busy:  # daily cap reached: retrieve the related notices but call no provider
             chain = build_answer_chain(
                 retriever=NoticeRetriever(department=body.department, semester=body.semester),
-                provider_config=_provider_config,
+                answer_generator=_busy_generator,
             )
+        else:
+            chain = _answer_chain or build_answer_chain(provider_config=_provider_config)
+            if body.department or body.semester:
+                chain = build_answer_chain(
+                    retriever=NoticeRetriever(department=body.department, semester=body.semester),
+                    provider_config=_provider_config,
+                )
         invocation = {"question": question}
-        if hasattr(chain, "invoke"):
-            result = chain.invoke(invocation)
-        else:  # Compatibility for async fakes and custom chains in tests.
-            import asyncio
-            result = asyncio.run(chain.ainvoke(invocation))
+        try:
+            if hasattr(chain, "invoke"):
+                result = chain.invoke(invocation)
+            else:  # Compatibility for async fakes and custom chains in tests.
+                import asyncio
+                result = asyncio.run(chain.ainvoke(invocation))
+        except Exception:
+            if model_slot:
+                _model_cap.adjust(-1)  # nothing reached a provider
+            raise
 
         raw_status = result.get("status", "answered")
+        if model_slot:  # only real provider calls count towards the daily cap
+            calls = int(result.get("attempts") or 0)
+            if raw_status == "not_found_retrieval" or calls == 0:
+                _model_cap.adjust(-1)
+            elif calls > 1:
+                _model_cap.adjust(calls - 1)
+        if busy and raw_status == "ai_unavailable":
+            result = {**result, "answer": BUSY_TODAY_MESSAGE}
+            logger.info("status=ai_unavailable reason=daily_cap")
         model_redirect = marker_response(str(result.get("answer", "")))
         if model_redirect is not None:
             logger.info("status=redirect route=%s question_length=%d", model_redirect["route"], len(question))

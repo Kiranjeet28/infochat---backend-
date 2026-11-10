@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import os as _os
+
+for _name in ("RATE_LIMIT_PER_MINUTE", "RATE_LIMIT_PER_DAY", "GLOBAL_DAILY_MODEL_CALLS"):
+    _os.environ.setdefault(_name, "0")  # off for these tests; limits are tested in test_limits.py
+
 import os
 import unittest
 from unittest.mock import patch
