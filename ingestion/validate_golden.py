@@ -53,8 +53,13 @@ def validate_payload(payload: Any) -> tuple[list[str], list[str], dict[str, int]
                 errors.append(f"{label}.{field} must be a list of strings")
         if not isinstance(case["notes"], str):
             errors.append(f"{label}.notes must be a string")
+        if "verified" in case and not isinstance(case["verified"], bool):
+            errors.append(f"{label}.verified must be true or false")
         if kind == "answerable" and isinstance(case["must_contain_facts"], list) and not case["must_contain_facts"]:
             warnings.append(f"{case_id}: answerable case has no must_contain_facts")
+    unverified = sum(1 for case in payload if isinstance(case, dict) and case.get("verified") is False)
+    if unverified:
+        warnings.append(f"{unverified} of {len(payload)} cases are unverified (verified: false); check their facts before trusting results")
     if len(payload) < 50:
         warnings.append(f"golden set has {len(payload)} cases; recommended minimum is 50")
     return errors, warnings, counts

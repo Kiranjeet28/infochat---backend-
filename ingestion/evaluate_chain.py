@@ -616,6 +616,7 @@ def _evaluate_golden_case(
     fallback = bool(result.get("provider") and providers and result["provider"] != providers[0])
     result.update({
         "id": case["id"], "type": case["type"],
+        "verified": case.get("verified", True),  # a missing flag means a hand-written, trusted case
         "expected_notice_titles": expected_titles,
         "status_match": status_match, "top1_retrieval_hit": top1_hit,
         "top5_retrieval_hit": top5_hit,
@@ -682,7 +683,18 @@ def _summarize_golden(results: list[dict[str, Any]], repeat: int) -> dict[str, A
             cases = [row for row in results if row["id"] == case_id]
             if len({(row.get("actual_status"), row.get("pass/fail")) for row in cases}) > 1:
                 unstable.append(case_id)
-    return {"overall": metrics(results), "by_type": by_type, "unstable_cases": unstable}
+    verified_rows = [row for row in results if row.get("verified", True) is not False]
+    unverified_rows = [row for row in results if row.get("verified", True) is False]
+    verification = {
+        "verified_cases": len({row["id"] for row in verified_rows}),
+        "unverified_cases": len({row["id"] for row in unverified_rows}),
+        "verified": metrics(verified_rows) if verified_rows else None,
+        "unverified": metrics(unverified_rows) if unverified_rows else None,
+    }
+    # Unverified drafts never gate the exit code: their expected facts are not yet checked by a person.
+    gating = verification["verified"] or metrics(results)
+    return {"overall": metrics(results), "by_type": by_type, "unstable_cases": unstable,
+            "verification": verification, "gating": gating}
 
 
 def _detect_regressions(previous: list[dict[str, Any]], current: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
@@ -700,7 +712,7 @@ def _detect_regressions(previous: list[dict[str, Any]], current: list[dict[str, 
 
 
 def _golden_exit_code(summary: dict[str, Any], warnings: list[str]) -> int:
-    values = summary["overall"]
+    values = summary.get("gating", summary["overall"])
     failed = (
         values.get("status_match_rate") is None
         or values["status_match_rate"] < DEFAULT_GOLDEN_THRESHOLDS["status_match_rate"]
@@ -756,6 +768,11 @@ def _write_golden_results(
         "| Metric | Value |", "|---|---:|",
     ]
     lines.extend(f"| {key} | {_render_cell(value)} |" for key, value in summary["overall"].items())
+    verification = summary.get("verification")
+    if verification:
+        lines.extend(["", "## Verification", "",
+                      f"- Verified cases: {verification['verified_cases']}",
+                      f"- Unverified cases (not used for the exit code): {verification['unverified_cases']}"])
     lines.extend([
         "", "## Per-type metrics", "",
         "| Type | Cases | Status match | Top-1 retrieval | Top-5 retrieval | Citation correct | No-answer correct | Redirect correct | Fact match | Freshness incidents | Median latency | P95 latency | Fallback | Cache hit |",
@@ -812,6 +829,10 @@ def _run_golden_evaluation(
         return 1
     for warning in warnings:
         print(f"WARNING: {warning}")
+    unverified_total = sum(1 for case in payload if case.get("verified", True) is False)
+    print(f"Golden set verified: {len(payload) - unverified_total}, unverified: {unverified_total}")
+    if unverified_total:
+        warnings.append(f"{unverified_total} unverified cases are reported separately and do not gate the exit code")
     selected = [case for case in payload if types is None or case["type"] in types]
     if limit is not None:
         selected = selected[:limit]
@@ -845,6 +866,11 @@ def _run_golden_evaluation(
         ]
         print("| " + " | ".join(_render_cell(value) for value in fields) + " |")
     print(f"\nTotals: {json.dumps(summary['overall'], ensure_ascii=False)}")
+    verification = summary["verification"]
+    print(f"Verified cases: {verification['verified_cases']}, unverified cases: {verification['unverified_cases']}")
+    for label in ("verified", "unverified"):
+        if verification[label]:
+            print(f"  {label}: {json.dumps(verification[label], ensure_ascii=False)}")
     print("\nPer-case results:")
     print("| ID | Type | Status match | Top 1 | Top 5 | Citations | Facts | No answer | Redirect | Freshness | Model latency | Provider | Attempts | Cached | Result |")
     print("|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---|---:|---:|---|")
