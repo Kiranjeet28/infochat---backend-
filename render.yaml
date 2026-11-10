@@ -1,0 +1,37 @@
+# Optional Render blueprint. Review before use; nothing is deployed until you create the service.
+services:
+  - type: web
+    name: cascadeiq-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: false          # deploy by hand until the beta is stable
+    envVars:
+      # Secrets: set in the Render dashboard (never in this file).
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Your deployed frontend origin, exact, comma separated (e.g. https://your-app.vercel.app).
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: TRUST_PROXY_HEADERS
+        value: "1"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "10"
+      - key: RATE_LIMIT_PER_DAY
+        value: "80"
+      - key: GLOBAL_DAILY_MODEL_CALLS
+        value: "400"           # set from your Groq daily limit
+      - key: FEEDBACK_PER_DAY
+        value: "20"
+      - key: GROQ_ENABLED
+        value: "true"
+      - key: GEMINI_ENABLED
+        value: "false"
+      - key: CACHE_ENABLED
+        value: "true"
+      - key: RESTRICTED_NOTICE_PATTERNS
+        value: "struck off,list of oe,readmission"
