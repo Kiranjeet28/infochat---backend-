@@ -34,12 +34,18 @@ class FakeAPI:
 
 class FakeStore:
     url, key = "https://db.example.test", "not-a-secret"
-    def __init__(self, known=()): self.rows=list(known); self.writes=[]
+    def __init__(self, known=()):
+        self.rows=list(known)
+        self.writes=[]
+        self.chunk_rows=[]
     def known(self): return self.rows
     def version(self): return "4"
     def persist_notice(self, *args): self.writes.append(("notice",args))
     def delete_chunks(self, *args): self.writes.append(("delete",args))
-    def write_chunks(self, *args): self.writes.append(("chunks",args)); return 0
+    def write_chunks(self, rows):
+        self.writes.append(("chunks",(rows,)))
+        self.chunk_rows.extend(rows)
+        return 0
     def mark_superseded(self, *args): self.writes.append(("superseded",args))
     def withdrawn_available(self): return True
     def withdraw_missing(self, *args): self.writes.append(("withdraw",args))
@@ -76,6 +82,29 @@ class RunPipelineOfflineTests(unittest.TestCase):
         with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"), patch.object(pipeline.RecursiveCharacterTextSplitter,"from_tiktoken_encoder",return_value=FakeSplitter()):
             _, summary=pipeline.run(mode="full",max_pages=3,api_url="https://api.example.test",store=store,session=api,processor=processed)
         self.assertEqual(api.calls,[1,2]); self.assertTrue(summary["fetched"])
+
+    def test_chunk_rows_match_supabase_schema(self):
+        notice = self.notice()
+        notice["text"] = "content " * 10
+        api=FakeAPI({1:[notice],2:[]}); store=FakeStore()
+
+        class FakeEmbedder:
+            def embed(self, _texts):
+                yield [0.0] * pipeline.EMBEDDING_DIMENSIONS
+
+        with patch.object(pipeline,"warm_up"), patch.object(pipeline,"bump_kb_version"), patch.object(pipeline.RecursiveCharacterTextSplitter,"from_tiktoken_encoder",return_value=FakeSplitter()):
+            pipeline.run(
+                mode="full",
+                max_pages=3,
+                api_url="https://api.example.test",
+                store=store,
+                session=api,
+                processor=processed,
+                embedder_factory=FakeEmbedder,
+            )
+
+        self.assertTrue(store.chunk_rows)
+        self.assertNotIn("index_version", store.chunk_rows[0])
 
     def test_dry_run_performs_no_writes(self):
         api=FakeAPI({1:[self.notice()],2:[]}); store=FakeStore()

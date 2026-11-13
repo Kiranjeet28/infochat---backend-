@@ -28,7 +28,7 @@ from ingestion.safe_fetch import JSON_TYPES, MAX_TEXT_BYTES, safe_get  # noqa: E
 from ingestion.cache_store import bump_kb_version, read_kb_version  # noqa: E402
 from ingestion.chunk_notices import (  # noqa: E402
     CHUNK_OVERLAP_TOKENS, CHUNK_SIZE_TOKENS, EMBEDDING_DIMENSIONS,
-    INDEX_VERSION, chunk_notice,
+    chunk_notice,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter  # noqa: E402
 
@@ -338,7 +338,6 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
             for chunk, vector in zip(chunk_rows, vectors):
                 chunk["embedding"] = vector
                 chunk["embedding_model"] = EMBEDDING_MODEL
-                chunk["index_version"] = INDEX_VERSION
             prepared_chunks[row["notice_id"]] = chunk_rows
             summary["embeddings_written"] += len(vectors)
     summary["superseded"] = sum(bool(n.get("supersedes_id")) for n in processed)
