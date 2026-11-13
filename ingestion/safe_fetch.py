@@ -11,7 +11,9 @@ from urllib.parse import urljoin, urlparse
 import requests
 
 REDIRECT_STATUSES = (301, 302, 303, 307, 308)
-DEFAULT_ALLOWED_HOSTS = "gndec.ac.in"
+# Notices come only from the notices API host (NOTICES_API_URL). Other hosts, such as the college site, must be
+# allowed explicitly with SAFE_FETCH_ALLOWED_HOSTS (comma separated, exact or subdomain match).
+DEFAULT_ALLOWED_HOSTS = ""
 PDF_TYPES = ("application/pdf",)
 HTML_TYPES = ("text/html",)
 JSON_TYPES = ("application/json",)
@@ -27,6 +29,10 @@ class FetchError(requests.RequestException):
 
 class BlockedUrlError(FetchError):
     pass
+
+
+class HostNotAllowedError(BlockedUrlError):
+    """The host is not the notices API host and is not in SAFE_FETCH_ALLOWED_HOSTS (no connection was made)."""
 
 
 class FetchTooLargeError(FetchError):
@@ -46,7 +52,7 @@ class FetchDeadlineError(FetchError):
 
 
 def allowed_hosts(extra: tuple[str, ...] = ()) -> list[str]:
-    """SAFE_FETCH_ALLOWED_HOSTS plus the host of NOTICES_API_URL plus explicit extras."""
+    """The host of NOTICES_API_URL, plus SAFE_FETCH_ALLOWED_HOSTS (default none), plus explicit extras."""
     hosts = [h.strip().lower().rstrip(".") for h in os.getenv("SAFE_FETCH_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS).split(",")]
     api_host = urlparse(os.getenv("NOTICES_API_URL", "")).hostname
     hosts += [api_host.lower()] if api_host else []
@@ -75,7 +81,7 @@ def validate_url(url: str, allowed: list[str]) -> None:
     if parsed.port not in (None, 443):
         raise BlockedUrlError("non-standard port refused")
     if not _host_allowed(parsed.hostname, allowed):
-        raise BlockedUrlError(f"host not allowed: {parsed.hostname}")
+        raise HostNotAllowedError(f"host not allowed: {parsed.hostname}")
     try:
         addresses = _getaddrinfo(parsed.hostname, 443)
     except OSError:

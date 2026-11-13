@@ -20,7 +20,7 @@ The minimum notice text length is configurable with `MIN_NOTICE_TEXT_LENGTH` (de
 
 ## Fetch safety (all notice fetches go through `ingestion/safe_fetch.py`)
 
-- https only, no credentials in URLs, standard port, host must be `gndec.ac.in` (or a subdomain) or the host of `NOTICES_API_URL`. Extra hosts: `SAFE_FETCH_ALLOWED_HOSTS` (comma separated, exact or subdomain match).
+- https only, no credentials in URLs, standard port. **Notices come only from the host of `NOTICES_API_URL`** (default `infocascade-database.onrender.com`); no other host is contacted unless you list it in `SAFE_FETCH_ALLOWED_HOSTS` (comma separated, exact or subdomain match, for example `gndec.ac.in`). A blocked host is refused before any DNS lookup or connection. Note: the notices API carries only short summaries; the full notice text and PDFs are on the college site, so with the default a notice whose text is not in the API fails as `official_page_not_allowed` and nothing is written (the run exits 1 with a hint). The review gate's `ALLOWED_SOURCE_DOMAINS` (`gndec.ac.in`) only checks the link shown to students; it contacts nothing.
 - Every address the host resolves to must be public (private, loopback, link-local, multicast and reserved ranges are refused), re-checked on every redirect. At most 5 redirects, never https to http.
 - Body caps: 25 MB for PDFs, 5 MB for HTML and JSON (decoded bytes). Content types allowed: `application/pdf`, `text/html`, `application/json`. A PDF served with another type is refused. PDFs are capped at 100 pages and 500000 characters.
 - Errors never contain URLs, query strings or keys.

@@ -291,6 +291,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
                 "pdf_error": "pdf_extraction_error",
                 "no_text_or_pdf": "no_text_or_pdf",
                 "official_page_unreachable": "official_page_unreachable",
+                "official_page_not_allowed": "official_page_not_allowed",
             }.get(status, "no_usable_text")
             summary["failed_notices"][notice_id] = failure_code
             continue
@@ -372,7 +373,10 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
         summary["cache_entries_invalidated"] = store.invalidate(changed_ids)
         bump_kb_version(store.url, store.key)
     total = max(1, len(processed))
-    if summary["failed"] / total > .20: raise RuntimeError("More than 20 percent of notices failed processing")
+    if summary["failed"] / total > .20:
+        if summary["failed_notices"] and set(summary["failed_notices"].values()) == {"official_page_not_allowed"}:
+            raise RuntimeError("Notice text is only on blocked hosts")
+        raise RuntimeError("More than 20 percent of notices failed processing")
     if summary["failed"]:
         summary["warnings"].append("some notices failed processing")
     summary["duration_seconds"] = round(time.monotonic() - started, 2)
@@ -402,6 +406,9 @@ def main(argv: list[str] | None = None) -> int:
                 safe_error = "Notices API warm-up failed after retries; check NOTICES_API_URL and API availability."
             elif str(error) == "More than 20 percent of notices failed processing":
                 safe_error = "More than 20% of fetched notices failed extraction; inspect source records and extraction status."
+            elif str(error) == "Notice text is only on blocked hosts":
+                safe_error = ("The notices API only carries short summaries; the full text is on hosts that are not allowed. "
+                              "Nothing was written. To ingest full text, set SAFE_FETCH_ALLOWED_HOSTS=gndec.ac.in.")
             elif str(error).startswith("Embedding dimension mismatch:"):
                 safe_error = "Embedding dimension mismatch; verify the configured embedding model output."
         summary = {"mode":args.mode,"dry_run":args.dry_run,"failed":1,"stage":CURRENT_STAGE,"error_type":type(error).__name__,"error":safe_error}

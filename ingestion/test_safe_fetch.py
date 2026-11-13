@@ -64,6 +64,11 @@ def fetch(responses, url="https://gndec.ac.in/a.pdf", resolver=PUBLIC, **kw):
 
 
 class SafeGetTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.dict(os.environ, {"SAFE_FETCH_ALLOWED_HOSTS": "gndec.ac.in"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_valid_fetch_returns_capped_body_and_never_follows_redirects_itself(self):
         resp, get, _ = fetch(Resp())
         self.assertEqual(resp.content, b"%PDF-1.4 ok")
@@ -175,9 +180,10 @@ class ExtractionRuleTests(unittest.TestCase):
               "htmlContent": "<p>Check the ERP noticeboard for full details.</p>", "date": "September 2, 2026"}
 
     def setUp(self):
-        patcher = patch.object(safe_fetch, "_getaddrinfo", return_value=PUBLIC)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for patcher in (patch.object(safe_fetch, "_getaddrinfo", return_value=PUBLIC),
+                        patch.dict(os.environ, {"SAFE_FETCH_ALLOWED_HOSTS": "gndec.ac.in"})):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_unreachable_official_page_fails_the_notice_instead_of_using_the_teaser(self):
         with patch.object(safe_fetch.requests, "get", side_effect=requests.ConnectTimeout("t")):
@@ -227,6 +233,73 @@ class ExtractionRuleTests(unittest.TestCase):
     def test_non_pdf_file_is_rejected(self):
         with patch.object(safe_fetch.requests, "get", return_value=Resp(body=b"<html></html>")), self.assertRaises(FetchError):
             extract_text._extract_pdf("https://gndec.ac.in/a.pdf")
+
+
+class ApiOnlyTests(unittest.TestCase):
+    """Default configuration: notices come only from the notices API host; no college host is contacted."""
+
+    API = "https://infocascade-database.onrender.com/api/notices"
+    teaser = {"_id": "n1", "title": "Teaser notice", "url": "https://erp.gndec.ac.in/noticeboard/x",
+              "htmlContent": "<p>Check the ERP noticeboard for full details.</p>", "date": "September 2, 2026"}
+
+    def setUp(self):
+        for name in ("SAFE_FETCH_ALLOWED_HOSTS", "NOTICES_API_URL"):
+            os.environ.pop(name, None)
+        patcher = patch.dict(os.environ, {"NOTICES_API_URL": self.API})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_college_hosts_are_refused_without_any_connection_or_dns_lookup(self):
+        for url in ("https://erp.gndec.ac.in/noticeboard/x", "https://gndec.ac.in/a.pdf", "https://example.com/a.pdf"):
+            with self.subTest(url=url), patch.object(safe_fetch, "_getaddrinfo") as dns,                     patch.object(safe_fetch.requests, "get") as get, self.assertRaises(safe_fetch.HostNotAllowedError):
+                safe_get(url, allowed_content_types=PDF, max_bytes=10)
+            dns.assert_not_called()
+            get.assert_not_called()
+
+    def test_only_the_notices_api_host_is_allowed_by_default(self):
+        self.assertEqual(safe_fetch.allowed_hosts(), ["infocascade-database.onrender.com"])
+        with patch.object(safe_fetch, "_getaddrinfo", return_value=PUBLIC),                 patch.object(safe_fetch.requests, "get", return_value=Resp(headers={"content-type": "application/json"}, body=b"{}")):
+            safe_get(self.API, allowed_content_types=("application/json",), max_bytes=10)
+
+    def test_the_college_host_can_be_allowed_again_with_one_variable(self):
+        with patch.dict(os.environ, {"SAFE_FETCH_ALLOWED_HOSTS": "gndec.ac.in"}):
+            self.assertEqual(safe_fetch.allowed_hosts(), ["gndec.ac.in", "infocascade-database.onrender.com"])
+
+    def test_teaser_notice_fails_with_a_clear_status_and_never_touches_the_network(self):
+        with patch.object(safe_fetch, "_getaddrinfo") as dns, patch.object(safe_fetch.requests, "get") as get:
+            result = extract_text.process_notices([dict(self.teaser)])[0]
+        dns.assert_not_called()
+        get.assert_not_called()
+        self.assertEqual((result["ingestion_status"], result["extraction_status"], result["text"]),
+                         ("failed", "official_page_not_allowed", ""))
+        self.assertIn("SAFE_FETCH_ALLOWED_HOSTS", result["ingestion_failure_reason"])
+
+    def test_pdf_links_on_blocked_hosts_are_failures_too(self):
+        notice = dict(self.teaser, htmlContent='<a href="https://erp.gndec.ac.in/files/a.pdf">pdf</a>')
+        with patch.object(safe_fetch.requests, "get") as get:
+            result = extract_text.process_notices([notice])[0]
+        get.assert_not_called()
+        self.assertEqual(result["ingestion_status"], "failed")
+        self.assertEqual(result["extraction_status"], "pdf_error")
+
+    def test_pipeline_explains_the_blocked_host_failure_and_writes_nothing(self):
+        from ingestion.test_run_pipeline import FakeAPI, FakeStore
+
+        def blocked(items):
+            return [dict(n, ingestion_status="failed", extraction_status="official_page_not_allowed") for n in items]
+
+        api = FakeAPI({1: [dict(self.teaser)]})
+        store = FakeStore()
+        with patch.object(run_pipeline, "warm_up"), patch.object(safe_fetch, "_getaddrinfo", return_value=PUBLIC), \
+                self.assertRaisesRegex(RuntimeError, "only on blocked hosts"):
+            run_pipeline.run(api_url="https://api.example.test", store=store, session=api, processor=blocked)
+        self.assertEqual(store.writes, [])
+
+        with patch.dict(os.environ, {"SUPABASE_URL": "https://db.example.test", "SUPABASE_SERVICE_ROLE_KEY": "fake"}),                 patch.object(run_pipeline, "run", side_effect=RuntimeError("Notice text is only on blocked hosts")),                 patch("sys.stderr") as stderr:
+            code = run_pipeline.main(["--dry-run"])
+        self.assertEqual(code, 1)
+        printed = "".join(call.args[0] for call in stderr.write.call_args_list if call.args)
+        self.assertIn("SAFE_FETCH_ALLOWED_HOSTS=gndec.ac.in", printed)
 
 
 class WarmUpTests(unittest.TestCase):

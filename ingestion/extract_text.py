@@ -16,9 +16,9 @@ import requests  # noqa: F401  (tests patch extract_text.requests.get)
 from bs4 import BeautifulSoup
 
 try:
-    from ingestion.safe_fetch import FetchError, HTML_TYPES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PDF_TYPES, safe_get
+    from ingestion.safe_fetch import FetchError, HostNotAllowedError, HTML_TYPES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PDF_TYPES, safe_get
 except ImportError:  # run directly from the ingestion folder
-    from safe_fetch import FetchError, HTML_TYPES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PDF_TYPES, safe_get
+    from safe_fetch import FetchError, HostNotAllowedError, HTML_TYPES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PDF_TYPES, safe_get
 
 
 INPUT_PATH = Path(__file__).parent / "data" / "notices.json"
@@ -104,6 +104,10 @@ class OfficialPageUnavailable(FetchError):
     """The official notice page could not be read, so only a teaser is available."""
 
 
+class OfficialPageNotAllowed(OfficialPageUnavailable):
+    """The official page is on a host that is not allowed, so it was never contacted."""
+
+
 def _text_and_pdf_link(notice: dict) -> tuple[str, str | None]:
     html = notice.get("htmlContent") or ""
     soup = BeautifulSoup(html, "html.parser")
@@ -146,6 +150,8 @@ def _text_and_pdf_link(notice: dict) -> tuple[str, str | None]:
                     return "", None
                 if official_text:
                     return clean_text(official_text), None
+        except HostNotAllowedError as error:
+            raise OfficialPageNotAllowed(str(error)) from None
         except FetchError as error:
             raise OfficialPageUnavailable(str(error)) from None
         raise OfficialPageUnavailable("official page has no readable notice body")
@@ -451,6 +457,8 @@ def add_ingestion_status(notice: dict) -> dict:
     status = notice.get("extraction_status")
     if status == "needs_ocr":
         reason = "PDF has no extractable text; OCR is required."
+    elif status == "official_page_not_allowed":
+        reason = "The notice text is only on a host that is not allowed (SAFE_FETCH_ALLOWED_HOSTS); only the notices API is contacted."
     elif status == "official_page_unreachable":
         reason = "Official notice page could not be read; the API teaser text was not used."
     elif status == "pdf_error":
@@ -496,9 +504,12 @@ def process_notices(notices: list[dict]) -> list[dict]:
                     pdf_url = None
             result["pdf_url"] = pdf_url
             result["text"] = ""
-            result["extraction_status"] = (
-                "official_page_unreachable" if isinstance(error, OfficialPageUnavailable) else "pdf_error"
-            )
+            if isinstance(error, OfficialPageNotAllowed):
+                result["extraction_status"] = "official_page_not_allowed"
+            elif isinstance(error, OfficialPageUnavailable):
+                result["extraction_status"] = "official_page_unreachable"
+            else:
+                result["extraction_status"] = "pdf_error"
             result["content_hash"] = hashlib.sha256(b"").hexdigest()
             result["metadata"] = extract_metadata(notice, "")
             result["extraction_error"] = str(error)
