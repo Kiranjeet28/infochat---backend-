@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import patch
 
 from ingestion.redirects import (
-    CALCULATOR_LINK, REDIRECT_MESSAGE, TIMETABLE_LINK, route_question,
+    CALCULATOR_LINK, LATEST_NOTICES, REDIRECT_MESSAGE, TIMETABLE_LINK, route_question,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -57,6 +57,23 @@ class RouterTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIsNone(route_question(phrase))
         self.assertIsNone(route_question("Where is the library?"))
+
+    def test_latest_notice_intent_and_content_question_exclusions(self):
+        latest = [
+            "latest notice", "last notice", "recent notices", "new notice",
+            "any new notice", "recently released", "recently published",
+            "what's new", "naya notice",
+        ]
+        for phrase in latest:
+            with self.subTest(phrase=phrase):
+                self.assertEqual(route_question(phrase), (LATEST_NOTICES, []))
+        for phrase in (
+            "When is the date sheet for the makeup exam?",
+            "What is the exam result date?",
+            "Tell me the latest exam schedule details",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIsNone(route_question(phrase))
 
 
 @unittest.skipIf(MISSING, "FastAPI TestClient tests skipped: install fastapi and httpx")

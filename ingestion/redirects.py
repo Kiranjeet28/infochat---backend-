@@ -1,4 +1,4 @@
-"""Rule-based redirects for calculator and timetable questions."""
+"""Rule-based routing for latest notices and redirects."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ INFOCASCADE_BASE_URL = "https://infocascadebuild.vercel.app"
 REDIRECT_MESSAGE = "I can't provide this information through my AI model. Please visit this page for the relevant information:"
 REDIRECT_CALCULATOR = "REDIRECT_CALCULATOR"
 REDIRECT_TIMETABLE = "REDIRECT_TIMETABLE"
+LATEST_NOTICES = "latest_notices"
 
 
 @dataclass(frozen=True)
@@ -38,10 +39,19 @@ _TIMETABLE = re.compile(
     r"|\bclass\s+at\s+\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\b",
     re.IGNORECASE,
 )
+_LATEST_NOTICES = re.compile(
+    r"\b(?:latest\s+notice|last\s+notice|recent\s+notices?|new\s+notice|"
+    r"any\s+new\s+notice|recently\s+(?:released|published)|what(?:'s| is)\s+new|"
+    r"naya\s+notice)\b",
+    re.IGNORECASE,
+)
+LATEST_NOTICE_TOPICS = ("date sheet", "result", "fee", "exam")
 
 
 def route_question(question: str) -> tuple[str, list[RedirectLink]] | None:
     """Return matching redirect routes and links, or None for notice flow."""
+    if _LATEST_NOTICES.search(question):
+        return LATEST_NOTICES, []
     calculator = bool(_CALCULATOR_TERM.search(question) or _PERCENTAGE_INTENT.search(question))
     timetable = bool(_TIMETABLE.search(question))
     if not calculator and not timetable:
@@ -57,11 +67,24 @@ def route_question(question: str) -> tuple[str, list[RedirectLink]] | None:
     return "+".join(routes), links
 
 
+def latest_notices_topic(question: str) -> str | None:
+    """Return a supported topic requested alongside a latest-notices phrase."""
+    if not _LATEST_NOTICES.search(question):
+        return None
+    lowered = question.casefold()
+    for topic in LATEST_NOTICE_TOPICS:
+        if topic in lowered:
+            return topic
+    return ""
+
+
 def redirect_response(question: str) -> dict | None:
     match = route_question(question)
     if match is None:
         return None
     route, links = match
+    if route == LATEST_NOTICES:
+        return None
     return {
         "route": route,
         "answer": REDIRECT_MESSAGE + "\n" + "\n".join(link.url for link in links),

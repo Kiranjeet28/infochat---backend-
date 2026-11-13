@@ -39,8 +39,10 @@ def _request() -> Request:
 class FakeChain:
     def __init__(self, result):
         self.result = result
+        self.calls = 0
 
     async def ainvoke(self, _values):
+        self.calls += 1
         return self.result
 
 
@@ -102,6 +104,61 @@ class ApiResponseTests(unittest.TestCase):
         })
         self.assertEqual([source.title for source in response.sources], ["related"])
         self.assertEqual(response.sources_kind, "related")
+
+    def test_latest_notices_returns_rows_without_calling_provider(self):
+        chain = FakeChain({"answer": "must not run", "sources": [], "status": "answered"})
+        rows = [
+            {"title": "Newest", "date": "2026-11-05", "link": "https://example.test/new"},
+            {"title": "Older", "date": "2026-11-04", "link": "https://example.test/old"},
+        ]
+        with (
+            patch.object(api, "_answer_chain", chain),
+            patch.object(api, "_data_as_of", return_value={
+                "latest_notice_date": "2026-11-05", "last_ingested_at": "2026-11-06T00:00:00Z",
+            }),
+            patch.object(api, "_latest_notice_rows", return_value=rows),
+            patch.object(api, "cache_enabled", side_effect=AssertionError("cache was consulted")),
+            patch.object(api, "build_answer_chain", side_effect=AssertionError("provider was called")),
+        ):
+            response = api.ask(_request(), api.AskRequest(question="latest notice"))
+        self.assertEqual(response.status, "latest_notices")
+        self.assertEqual([notice.title for notice in response.notices], ["Newest", "Older"])
+        self.assertEqual(response.notices[0].link, "https://example.test/new")
+        self.assertEqual(chain.calls, 0)
+
+    def test_latest_notices_orders_and_filters_topics_with_empty_fallback(self):
+        rows = [
+            {"title": "Result published", "published_at": "2026-11-05",
+             "source_url": "https://example.test/result"},
+            {"title": "Older result", "published_at": "2026-11-01",
+             "source_url": "https://example.test/older"},
+        ]
+        with patch.object(api, "_notice_select", return_value=rows) as select:
+            notices = api._latest_notice_rows("result")
+        self.assertEqual([notice["title"] for notice in notices], ["Result published", "Older result"])
+        self.assertIn("title", select.call_args.args[0])
+
+        with patch.object(api, "_notice_select", side_effect=[[], rows]) as select:
+            notices = api._latest_notice_rows("fee")
+        self.assertEqual([notice["title"] for notice in notices], ["Result published", "Older result"])
+        self.assertNotIn("title", select.call_args_list[1].args[0])
+
+    def test_data_as_of_fails_open_when_select_fails(self):
+        api._data_as_of_cache = None
+        with patch.object(api, "_notice_select", side_effect=api.requests.RequestException("offline")):
+            self.assertIsNone(api._data_as_of())
+
+    def test_not_found_includes_latest_noticeboard_guidance(self):
+        with patch.object(api, "_data_as_of", return_value={"latest_notice_date": "2026-11-05"}):
+            response = self.call_api({
+                "answer": "The available notices do not establish this.",
+                "sources": [], "status": "not_found", "citations_valid": None,
+            })
+        self.assertIn(
+            "My latest notice is dated 2026-11-05. Please check the official noticeboard: "
+            "https://erp.gndec.ac.in/noticeboard",
+            response.answer,
+        )
 
     def test_ai_unavailable_and_invalid_citation_keep_related_sources(self):
         for status in ("ai_unavailable", "invalid_citation"):

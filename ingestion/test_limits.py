@@ -207,7 +207,8 @@ class ApiLimitTests(unittest.TestCase):
         self.assertEqual(busy.status_code, 200)
         body = busy.json()
         self.assertEqual(body["status"], "ai_unavailable")
-        self.assertEqual(body["answer"], api.BUSY_TODAY_MESSAGE)
+        self.assertTrue(body["answer"].startswith(api.BUSY_TODAY_MESSAGE))
+        self.assertIn("My latest notice is dated", body["answer"])
         self.assertEqual(body["sources_kind"], "related")
         self.assertTrue(body["sources"])
         self.assertEqual(chain.calls, 2)  # the real chain was not used again

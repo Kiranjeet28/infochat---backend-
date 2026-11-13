@@ -17,6 +17,7 @@ import sys
 import time
 import traceback
 import json
+import requests
 from threading import Lock
 from datetime import datetime, timezone
 from typing import Literal
@@ -35,6 +36,7 @@ from ingestion.answer_chain import extract_citations, renumber_citations
 from ingestion.feedback_store import SupabaseFeedbackStore
 from ingestion.limits import GlobalModelCap, SlidingWindowLimiter, client_id, env_int
 from ingestion.answer_config import plain_text_answers_enabled
+from ingestion.answer_config import OFFICIAL_NOTICEBOARD_URL
 from ingestion.cache_config import cache_enabled, cache_ttl_seconds
 from ingestion.cache_store import (
     SupabaseCacheStore, cache_key, cache_answer_if_valid, make_cache_entry,
@@ -45,7 +47,7 @@ from ingestion.langchain_retriever import NoticeRetriever
 from ingestion.prompt import PROMPT_VERSION
 from ingestion.provider_config import ProviderRuntimeConfig, require_enabled_provider_config
 from ingestion.retrieve import initialize_embedding_model
-from ingestion.redirects import redirect_response, marker_response
+from ingestion.redirects import latest_notices_topic, marker_response, redirect_response
 
 
 logger = logging.getLogger("cascadeiq.api")
@@ -55,6 +57,10 @@ _answer_chain = None
 _provider_config: ProviderRuntimeConfig | None = None
 _cache_store: SupabaseCacheStore | None = None
 _cache_counters = {"hit": 0, "miss": 0}
+_data_as_of_cache: dict[str, object] | None = None
+_data_as_of_cached_at = 0.0
+_DATA_AS_OF_TTL_SECONDS = 300
+_DATA_AS_OF_LOCK = Lock()
 _AUDIT_LOG_PATH = Path(__file__).resolve().parent / "logs" / "audit.log"
 _AUDIT_LOCK = Lock()
 _DEFAULT_CORS_ALLOWED_ORIGINS = (
@@ -240,13 +246,107 @@ class SourceCard(BaseModel):
     source_url: str | None = None
 
 
+class LatestNotice(BaseModel):
+    title: str
+    date: str | None = None
+    link: str
+
+
 class AskResponse(BaseModel):
     answer: str
     sources: list[SourceCard]
-    status: Literal["answered", "not_found", "invalid_citation", "ai_unavailable", "redirect"]
+    status: Literal[
+        "answered", "not_found", "invalid_citation", "ai_unavailable", "redirect", "latest_notices"
+    ]
     sources_kind: Literal["cited", "related"]
     cached: bool = False
     links: list[dict[str, str]] = Field(default_factory=list)
+    data_as_of: dict[str, str] | None = None
+    notices: list[LatestNotice] | None = None
+
+
+def _supabase_read_headers() -> dict[str, str]:
+    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    return {"apikey": key, "Authorization": f"Bearer {key}"}
+
+
+def _notice_select(params: dict[str, str]) -> list[dict]:
+    response = requests.get(
+        f"{os.environ['SUPABASE_URL'].rstrip('/')}/rest/v1/notices",
+        headers=_supabase_read_headers(),
+        params=params,
+        timeout=3,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    if not isinstance(rows, list):
+        raise ValueError("notices response was not a list")
+    return rows
+
+
+def _data_as_of() -> dict[str, str] | None:
+    """Read freshness metadata with a short in-memory TTL; failures are fail-open."""
+    global _data_as_of_cache, _data_as_of_cached_at
+    now = time.monotonic()
+    with _DATA_AS_OF_LOCK:
+        if _data_as_of_cache is not None and now - _data_as_of_cached_at < _DATA_AS_OF_TTL_SECONDS:
+            return dict(_data_as_of_cache)
+    try:
+        published = _notice_select({
+            "select": "published_at", "review_status": "eq.ok", "superseded_by": "is.null",
+            "order": "published_at.desc.nullslast", "limit": "1",
+        })
+        fetched = _notice_select({
+            "select": "fetched_at", "order": "fetched_at.desc.nullslast", "limit": "1",
+        })
+        result: dict[str, str] = {}
+        if published and published[0].get("published_at"):
+            result["latest_notice_date"] = str(published[0]["published_at"])
+        if fetched and fetched[0].get("fetched_at"):
+            result["last_ingested_at"] = str(fetched[0]["fetched_at"])
+        if not result:
+            return None
+    except (KeyError, ValueError, TypeError, requests.RequestException) as error:
+        logger.warning("status=data_as_of_unavailable error_type=%s", type(error).__name__)
+        return None
+    with _DATA_AS_OF_LOCK:
+        _data_as_of_cache = result
+        _data_as_of_cached_at = time.monotonic()
+    return dict(result)
+
+
+def _latest_notice_rows(topic: str | None) -> list[dict]:
+    params = {
+        "select": "title,published_at,source_url",
+        "review_status": "eq.ok",
+        "superseded_by": "is.null",
+        "order": "published_at.desc.nullslast",
+        "limit": "5",
+    }
+    if topic:
+        params["title"] = f"ilike.*{topic}*"
+    rows = _notice_select(params)
+    if topic and not rows:
+        params.pop("title")
+        rows = _notice_select(params)
+    return [
+        {"title": str(row.get("title") or "Untitled notice"),
+         "date": str(row["published_at"]) if row.get("published_at") else None,
+         "link": str(row["source_url"])}
+        for row in rows
+        if isinstance(row.get("source_url"), str) and row["source_url"].startswith("https://")
+    ][:5]
+
+
+def _noticeboard_guidance(answer: str, data_as_of: dict[str, str] | None) -> str:
+    latest_date = data_as_of.get("latest_notice_date") if data_as_of else None
+    if not latest_date:
+        return answer
+    noticeboard_url = os.getenv("OFFICIAL_NOTICEBOARD_URL", OFFICIAL_NOTICEBOARD_URL)
+    return (
+        f"{answer.rstrip()} My latest notice is dated {latest_date}. "
+        f"Please check the official noticeboard: {noticeboard_url}"
+    )
 
 
 def strip_markdown(text: str) -> str:
@@ -303,7 +403,7 @@ def feedback(request: Request, body: FeedbackRequest) -> JSONResponse:
     return JSONResponse(status_code=200, content={"status": "ok"})
 
 
-@app.post("/api/ask", response_model=AskResponse)
+@app.post("/api/ask", response_model=AskResponse, response_model_exclude_none=True)
 def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
     """Answer a question from current notices and return its source cards."""
     retry_after = _ask_limiter.hit(_client_id(request))
@@ -330,6 +430,25 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
     status = "error"
     cached = False
     try:
+        freshness = _data_as_of()
+        latest_topic = latest_notices_topic(question)
+        if latest_topic is not None:
+            notices = _latest_notice_rows(latest_topic or None)
+            topic_text = f" matching {latest_topic}" if latest_topic else ""
+            answer = (
+                f"Here are the newest notices{topic_text}."
+                if notices else
+                f"There are no searchable notices{topic_text}; please check the official noticeboard."
+            )
+            return AskResponse(
+                answer=answer,
+                sources=[],
+                status="latest_notices",
+                sources_kind="related",
+                cached=False,
+                data_as_of=freshness,
+                notices=notices,
+            )
         routed = redirect_response(question)
         if routed:
             status = "redirect"
@@ -340,7 +459,7 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
             })
             return AskResponse(
                 answer=routed["answer"], sources=[], status="redirect", sources_kind="related",
-                cached=False, links=routed["links"],
+                cached=False, links=routed["links"], data_as_of=freshness,
             )
 
         cache_allowed = cache_enabled() and not privacy_guard(question)
@@ -381,7 +500,7 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
                                 entry.get("provider"), entry.get("model"), time.monotonic() - started, len(question))
                     return AskResponse(
                         answer=entry["answer"], sources=entry["sources"], status="answered",
-                        sources_kind="cited", cached=True,
+                        sources_kind="cited", cached=True, data_as_of=freshness,
                     )
                 _cache_counters["miss"] += 1
                 logger.info("status=cache_miss cached=false question_length=%d", len(question))
@@ -435,7 +554,7 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
             })
             return AskResponse(
                 answer=model_redirect["answer"], sources=[], status="redirect", sources_kind="related",
-                cached=False, links=model_redirect["links"],
+                cached=False, links=model_redirect["links"], data_as_of=freshness,
             )
         if raw_status in {"not_found", "not_found_model", "not_found_retrieval"}:
             status = "not_found"
@@ -469,6 +588,8 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
 
         if plain_text_answers_enabled():
             answer = strip_markdown(answer)
+        if status in {"not_found", "ai_unavailable"}:
+            answer = _noticeboard_guidance(answer, freshness)
 
         if cache_allowed and status == "answered" and citations_valid and current_key and kb_version:
             source_ids = list(dict.fromkeys(
@@ -508,6 +629,7 @@ def ask(request: Request, body: AskRequest) -> AskResponse | JSONResponse:
             status=status,
             sources_kind=sources_kind,
             cached=False,
+            data_as_of=freshness,
         )
     except Exception as error:
         _log_safe_traceback(request, error)

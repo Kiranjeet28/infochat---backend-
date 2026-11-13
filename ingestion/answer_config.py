@@ -24,6 +24,9 @@ def restricted_notice_patterns() -> tuple[str, ...]:
 
 FRIENDLY_NOT_FOUND_MESSAGE = "The available notices do not establish this."
 FRIENDLY_INVALID_CITATION_MESSAGE = "I could not verify an answer from the notices."
+OFFICIAL_NOTICEBOARD_URL = os.environ.get(
+    "OFFICIAL_NOTICEBOARD_URL", "https://erp.gndec.ac.in/noticeboard"
+)
 
 
 def plain_text_answers_enabled() -> bool:
