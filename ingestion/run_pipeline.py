@@ -119,6 +119,10 @@ class RestStore:
         response = self.request("GET", "notices", params={"select":"notice_id,content_hash,title,category,department,published_at,review_status,superseded_by", "limit":10000})
         return response.json()
 
+    def chunked_notice_ids(self) -> set[str]:
+        response = self.request("GET", "chunks", params={"select":"notice_id", "limit":10000})
+        return {str(row["notice_id"]) for row in response.json() if row.get("notice_id")}
+
     def version(self) -> str:
         return read_kb_version(self.url, self.key)
 
@@ -222,6 +226,7 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
     CURRENT_STAGE = "supabase_read_known_notices"
     known_rows = store.known()
     known = {str(r["notice_id"]):r for r in known_rows}
+    chunked_notice_ids = store.chunked_notice_ids()
     existing_hashes = {r["content_hash"] for r in known_rows if r.get("content_hash")}
     fetched: list[dict[str, Any]] = []
     processed_incremental: list[dict[str, Any]] = []
@@ -308,6 +313,8 @@ def run(*, mode: str = "incremental", dry_run: bool = False, max_pages: int | No
         if prior and prior.get("content_hash") == notice.get("content_hash"):
             summary["unchanged"] += 1
             # Preserve a hand-set review decision for identical content.
+            if notice_id not in chunked_notice_ids:
+                changed_notices.append((notice, False))
             continue
         if notice.get("content_hash") in existing_hashes:
             summary["unchanged"] += 1

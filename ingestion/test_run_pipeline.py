@@ -34,11 +34,13 @@ class FakeAPI:
 
 class FakeStore:
     url, key = "https://db.example.test", "not-a-secret"
-    def __init__(self, known=()):
+    def __init__(self, known=(), chunked=None):
         self.rows=list(known)
+        self.chunked_ids = {str(row["notice_id"]) for row in self.rows} if chunked is None else set(chunked)
         self.writes=[]
         self.chunk_rows=[]
     def known(self): return self.rows
+    def chunked_notice_ids(self): return self.chunked_ids
     def version(self): return "4"
     def persist_notice(self, *args): self.writes.append(("notice",args))
     def delete_chunks(self, *args): self.writes.append(("delete",args))
@@ -76,6 +78,32 @@ class RunPipelineOfflineTests(unittest.TestCase):
         with patch.object(pipeline,"warm_up"):
             code, summary=pipeline.run(api_url="https://api.example.test",store=store,session=api,processor=processed)
         self.assertEqual(api.calls,[1]); self.assertEqual(summary["unchanged"],1); self.assertEqual(code,0)
+
+    def test_existing_notice_without_chunks_is_backfilled(self):
+        notice = self.notice()
+        notice["text"] = "content " * 10
+        api=FakeAPI({1:[notice]}); store=FakeStore(
+            [{"notice_id":"n1","content_hash":"h1"}], chunked=set()
+        )
+
+        class FakeEmbedder:
+            def embed(self, _texts):
+                yield [0.0] * pipeline.EMBEDDING_DIMENSIONS
+
+        with patch.object(pipeline,"warm_up"), patch.object(
+            pipeline.RecursiveCharacterTextSplitter,
+            "from_tiktoken_encoder",
+            return_value=FakeSplitter(),
+        ):
+            pipeline.run(
+                api_url="https://api.example.test",
+                store=store,
+                session=api,
+                processor=processed,
+                embedder_factory=FakeEmbedder,
+            )
+
+        self.assertTrue(store.chunk_rows)
 
     def test_full_fetches_through_empty_page_and_honors_cap(self):
         api=FakeAPI({1:[self.notice()],2:[]}); store=FakeStore()
@@ -150,6 +178,7 @@ class RunPipelineOfflineTests(unittest.TestCase):
         source=workflow.read_text(encoding="utf-8")
         self.assertIn("schedule:",source)
         self.assertIn("if: github.event_name == 'workflow_dispatch' || vars.INGEST_ENABLED == 'true'",source)
+        self.assertIn("SAFE_FETCH_ALLOWED_HOSTS:",source)
         self.assertLess(source.index("jobs:"),source.index("  ingest:"))
         self.assertLess(source.index("  ingest:"),source.index("    steps:"))
 

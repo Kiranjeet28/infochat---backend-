@@ -46,6 +46,7 @@ jobs:
       - name: Run CascadeIQ ingestion
         env:
           NOTICES_API_URL: ${{ vars.NOTICES_API_URL || 'https://infocascade-database.onrender.com/api/notices' }}
+          SAFE_FETCH_ALLOWED_HOSTS: ${{ vars.SAFE_FETCH_ALLOWED_HOSTS || 'gndec.ac.in' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           EMBEDDING_ALLOW_DOWNLOAD: "1"
